@@ -1,434 +1,181 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
-
-	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
 
-// HandlerMockPostService is a mock implementation of domain.PostService for testing handlers
-type HandlerMockPostService struct{}
-
-func (m *HandlerMockPostService) GetByID(id string) (*domain.PostWithUser, error) {
-	if id == "nonexistent" {
-		return nil, domain.ErrPostNotFound
-	}
-	return &domain.PostWithUser{
-		Post: domain.Post{
-			ID:        id,
-			UserID:    "user_1",
-			Content:   "Test post content",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-		Username: "testuser",
-	}, nil
-}
-
-func (m *HandlerMockPostService) Create(userID, content string) (*domain.Post, error) {
-	return &domain.Post{
-		ID:        "post_123",
-		UserID:    userID,
-		Content:   content,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}, nil
-}
-
-func (m *HandlerMockPostService) Update(id, userID, content string) (*domain.Post, error) {
-	return &domain.Post{
-		ID:        id,
-		UserID:    userID,
-		Content:   content,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}, nil
-}
-
-func (m *HandlerMockPostService) Delete(id, userID string) error {
-	return nil
-}
-
-func (m *HandlerMockPostService) ListByUser(userID string, page, limit int) ([]*domain.Post, int, error) {
-	posts := []*domain.Post{
-		{
-			ID:        "post_1",
-			UserID:    userID,
-			Content:   "Test post 1",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-		{
-			ID:        "post_2",
-			UserID:    userID,
-			Content:   "Test post 2",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-	}
-	return posts, len(posts), nil
-}
-
-func (m *HandlerMockPostService) List(page, limit int) ([]*domain.PostWithUser, int, error) {
-	posts := []*domain.PostWithUser{
-		{
-			Post: domain.Post{
-				ID:        "post_1",
-				UserID:    "user_1",
-				Content:   "Test post 1",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			},
-			Username: "testuser1",
-		},
-		{
-			Post: domain.Post{
-				ID:        "post_2",
-				UserID:    "user_2",
-				Content:   "Test post 2",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			},
-			Username: "testuser2",
-		},
-	}
-	return posts, len(posts), nil
-}
-
-// HandlerMockPostCache is a mock implementation of PostCache for testing handlers
-type HandlerMockPostCache struct {
-	posts       map[string]*domain.Post
-	postsWithUser []*domain.PostWithUser
-}
-
-func NewHandlerMockPostCache() *HandlerMockPostCache {
-	return &HandlerMockPostCache{
-		posts:       make(map[string]*domain.Post),
-		postsWithUser: nil,
-	}
-}
-
-func (m *HandlerMockPostCache) GetPost(id string) (*domain.Post, error) {
-	if post, ok := m.posts[id]; ok {
-		return post, nil
-	}
-	return nil, domain.ErrPostNotFound
-}
-
-func (m *HandlerMockPostCache) SetPost(post *domain.Post) error {
-	m.posts[post.ID] = post
-	return nil
-}
-
-func (m *HandlerMockPostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
-	if m.postsWithUser == nil {
-		return nil, domain.ErrPostNotFound
-	}
-	return m.postsWithUser, nil
-}
-
-func (m *HandlerMockPostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
-	m.postsWithUser = posts
-	return nil
-}
-
-func (m *HandlerMockPostCache) InvalidatePosts() error {
-	m.postsWithUser = nil
-	return nil
-}
-
-func TestNewPostHandler(t *testing.T) {
-	postService := &HandlerMockPostService{}
-	postCache := NewHandlerMockPostCache()
-	
-	handler := NewPostHandler(postService, postCache)
-	
-	if handler == nil {
-		t.Fatal("NewPostHandler returned nil")
-	}
-	
-	if handler.postService != postService {
-		t.Errorf("handler.postService = %v, want %v", handler.postService, postService)
-	}
-	
-	if handler.postCache != postCache {
-		t.Errorf("handler.postCache = %v, want %v", handler.postCache, postCache)
-	}
-}
-
-func TestGetPostsHandler(t *testing.T) {
-	postService := &HandlerMockPostService{}
-	postCache := NewHandlerMockPostCache()
-	
-	handler := NewPostHandler(postService, postCache)
-	
-	// Test with GET method
-	req, err := http.NewRequest("GET", "/api/posts", nil)
+// TestLivezHandler tests the LivezHandler function
+func TestLivezHandler(t *testing.T) {
+	// Create a request to pass to our handler
+	req, err := http.NewRequest("GET", "/livez", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
+	// Create a ResponseRecorder to record the response
 	rr := httptest.NewRecorder()
-	
+
 	// Call the handler
-	handler.GetPostsHandler()(rr, req)
-	
+	handler := LivezHandler()
+	handler.ServeHTTP(rr, req)
+
 	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
-	
+
+	// Check the content type
+	contentType := rr.Header().Get("Content-Type")
+	if contentType != "text/plain" {
+		t.Errorf("handler returned wrong content type: got %v want %v", contentType, "text/plain")
+	}
+
 	// Check the response body
-	var response map[string]interface{}
-	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
-		t.Fatalf("Error decoding response: %v", err)
-	}
-	
-	posts, ok := response["posts"].([]interface{})
-	if !ok {
-		t.Fatalf("Expected posts to be an array, got %T", response["posts"])
-	}
-	
-	if len(posts) != 2 {
-		t.Errorf("len(posts) = %d, want %d", len(posts), 2)
-	}
-	
-	// Test with non-GET method
-	req, err = http.NewRequest("POST", "/api/posts", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	rr = httptest.NewRecorder()
-	
-	// Call the handler
-	handler.GetPostsHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	expected := "OK."
+	if rr.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
 	}
 }
 
-func TestGetPostHandler(t *testing.T) {
-	postService := &HandlerMockPostService{}
-	postCache := NewHandlerMockPostCache()
-	
-	handler := NewPostHandler(postService, postCache)
-	
-	// Test with GET method and valid post ID
-	req, err := http.NewRequest("GET", "/api/posts/post_1", nil)
-	if err != nil {
-		t.Fatal(err)
+// TestReadyzHandler tests the ReadyzHandler function
+func TestReadyzHandler(t *testing.T) {
+	testCases := []struct {
+		name           string
+		dbError        bool
+		cacheError     bool
+		expectedStatus int
+		expectedReady  string
+		expectedDB     string
+		expectedCache  string
+	}{
+		{
+			name:           "All services up",
+			dbError:        false,
+			cacheError:     false,
+			expectedStatus: http.StatusOK,
+			expectedReady:  "ready",
+			expectedDB:     "up",
+			expectedCache:  "up",
+		},
+		{
+			name:           "Database down",
+			dbError:        true,
+			cacheError:     false,
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedReady:  "not ready",
+			expectedDB:     "down",
+			expectedCache:  "up",
+		},
+		{
+			name:           "Cache down",
+			dbError:        false,
+			cacheError:     true,
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedReady:  "not ready",
+			expectedDB:     "up",
+			expectedCache:  "down",
+		},
+		{
+			name:           "All services down",
+			dbError:        true,
+			cacheError:     true,
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedReady:  "not ready",
+			expectedDB:     "down",
+			expectedCache:  "down",
+		},
 	}
-	
-	rr := httptest.NewRecorder()
-	
-	// Call the handler
-	handler.GetPostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-	
-	// Check the response body
-	var response map[string]interface{}
-	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
-		t.Fatalf("Error decoding response: %v", err)
-	}
-	
-	_, ok := response["post"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected post to be an object, got %T", response["post"])
-	}
-	
-	// Test with non-GET method
-	req, err = http.NewRequest("POST", "/api/posts/post_1", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	rr = httptest.NewRecorder()
-	
-	// Call the handler
-	handler.GetPostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create mock DB
+			mockDB := &mockDBPinger{
+				shouldError: tc.dbError,
+			}
+
+			// Create mock Cache
+			mockCache := &mockCachePinger{
+				shouldError: tc.cacheError,
+			}
+
+			// Create a request to pass to our handler
+			req, err := http.NewRequest("GET", "/readyz", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create a ResponseRecorder to record the response
+			rr := httptest.NewRecorder()
+
+			// Call the handler
+			handler := ReadyzHandler(mockDB, mockCache)
+			handler.ServeHTTP(rr, req)
+
+			// Check the status code
+			if status := rr.Code; status != tc.expectedStatus {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, tc.expectedStatus)
+			}
+
+			// Check the content type
+			contentType := rr.Header().Get("Content-Type")
+			if contentType != "application/json" {
+				t.Errorf("handler returned wrong content type: got %v want %v", contentType, "application/json")
+			}
+
+			// Check the response body
+			var response map[string]interface{}
+			if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+				t.Fatalf("Error parsing response body: %v", err)
+			}
+
+			// Check status field
+			if response["status"] != tc.expectedReady {
+				t.Errorf("handler returned wrong status: got %v want %v", response["status"], tc.expectedReady)
+			}
+
+			// Check checks field
+			checks, ok := response["checks"].(map[string]interface{})
+			if !ok {
+				t.Fatalf("checks field is not a map: %v", response["checks"])
+			}
+
+			// Check database status
+			if checks["database"] != tc.expectedDB {
+				t.Errorf("handler returned wrong database status: got %v want %v", checks["database"], tc.expectedDB)
+			}
+
+			// Check cache status
+			if checks["cache"] != tc.expectedCache {
+				t.Errorf("handler returned wrong cache status: got %v want %v", checks["cache"], tc.expectedCache)
+			}
+		})
 	}
 }
 
-func TestCreatePostHandler(t *testing.T) {
-	postService := &HandlerMockPostService{}
-	postCache := NewHandlerMockPostCache()
-	
-	handler := NewPostHandler(postService, postCache)
-	
-	// Test with POST method and valid request body
-	requestBody := map[string]string{
-		"content": "Test post content",
-	}
-	
-	body, err := json.Marshal(requestBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	req, err := http.NewRequest("POST", "/api/posts/create", bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	// Set Basic Auth
-	req.SetBasicAuth("admin", "password")
-	
-	rr := httptest.NewRecorder()
-	
-	// Call the handler
-	handler.CreatePostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-	
-	// Check the response body
-	var response map[string]interface{}
-	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
-		t.Fatalf("Error decoding response: %v", err)
-	}
-	
-	_, ok := response["post"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected post to be an object, got %T", response["post"])
-	}
-	
-	// Test with non-POST method
-	req, err = http.NewRequest("GET", "/api/posts/create", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	rr = httptest.NewRecorder()
-	
-	// Call the handler
-	handler.CreatePostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
-	}
-	
-	// Test with missing authentication
-	req, err = http.NewRequest("POST", "/api/posts/create", bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	rr = httptest.NewRecorder()
-	
-	// Call the handler
-	handler.CreatePostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusUnauthorized {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusUnauthorized)
-	}
-	
-	// Test with invalid request body
-	req, err = http.NewRequest("POST", "/api/posts/create", bytes.NewBuffer([]byte("invalid json")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	// Set Basic Auth
-	req.SetBasicAuth("admin", "password")
-	
-	rr = httptest.NewRecorder()
-	
-	// Call the handler
-	handler.CreatePostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
-	}
-	
-	// Test with empty content
-	requestBody = map[string]string{
-		"content": "",
-	}
-	
-	body, err = json.Marshal(requestBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	req, err = http.NewRequest("POST", "/api/posts/create", bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	// Set Basic Auth
-	req.SetBasicAuth("admin", "password")
-	
-	rr = httptest.NewRecorder()
-	
-	// Call the handler
-	handler.CreatePostHandler()(rr, req)
-	
-	// Check the status code
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
-	}
+// mockDBPinger is a mock implementation of DBPinger for testing
+type mockDBPinger struct {
+	shouldError bool
 }
 
-func TestAuthenticateRequest(t *testing.T) {
-	// Test with valid credentials
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
+func (m *mockDBPinger) Ping() error {
+	if m.shouldError {
+		return errors.New("database connection error")
 	}
-	
-	req.SetBasicAuth("admin", "password")
-	
-	userID, err := authenticateRequest(req)
-	if err != nil {
-		t.Fatalf("Error authenticating request: %v", err)
+	return nil
+}
+
+// mockCachePinger is a mock implementation of CachePinger for testing
+type mockCachePinger struct {
+	shouldError bool
+}
+
+func (m *mockCachePinger) Ping() error {
+	if m.shouldError {
+		return errors.New("cache connection error")
 	}
-	
-	if userID != "user_1" {
-		t.Errorf("userID = %s, want %s", userID, "user_1")
-	}
-	
-	// Test with invalid credentials
-	req, err = http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	req.SetBasicAuth("admin", "wrong_password")
-	
-	_, err = authenticateRequest(req)
-	if err != domain.ErrUserNotFound {
-		t.Errorf("Expected ErrUserNotFound, got %v", err)
-	}
-	
-	// Test with missing credentials
-	req, err = http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	
-	_, err = authenticateRequest(req)
-	if err != domain.ErrUserNotFound {
-		t.Errorf("Expected ErrUserNotFound, got %v", err)
-	}
+	return nil
 }
