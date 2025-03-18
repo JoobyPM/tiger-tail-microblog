@@ -57,13 +57,14 @@ func startServer(port string) {
 	}()
 }
 
-func main() {
+// runServer initializes and runs the server, returning a shutdown function
+func runServer() (shutdown func(), err error) {
 	fmt.Println("Starting TigerTail...")
 
 	// Initialize the application
 	port, err := initApp()
 	if err != nil {
-		log.Fatalf("Failed to initialize application: %v", err)
+		return nil, fmt.Errorf("failed to initialize application: %w", err)
 	}
 
 	// Setup routes
@@ -76,9 +77,33 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// Return a shutdown function that can be called to clean up
+	return func() {
+		// Clean up signal handler
+		signal.Stop(sigChan)
+		close(sigChan)
+		fmt.Println("\nShutting down TigerTail...")
+	}, nil
+}
+
+func main() {
+	// Run the server
+	shutdown, err := runServer()
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
+
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	// Wait for termination signal
 	<-sigChan
-	fmt.Println("\nShutting down TigerTail...")
+	
+	// Call shutdown function
+	if shutdown != nil {
+		shutdown()
+	}
 }
 
 // getEnv retrieves an environment variable or returns a default value if not set

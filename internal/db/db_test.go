@@ -1,18 +1,119 @@
 package db
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
+
 // TestNew tests the New function
 func TestNew(t *testing.T) {
-	// This test is difficult to run without a real database
-	// We'll skip it for now and rely on the postgres_test.go file
-	// which tests the actual implementation
-	t.Skip("Skipping test that requires a real database")
+	// Create a mock DB with ping monitoring enabled
+	mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatalf("Failed to create mock DB: %v", err)
+	}
+	defer mockDB.Close()
+
+	// Mock the sql.Open function
+	originalOpen := sqlOpen
+	defer func() { sqlOpen = originalOpen }()
+	
+	sqlOpen = func(driverName, dataSourceName string) (*sql.DB, error) {
+		if driverName != "postgres" {
+			return nil, fmt.Errorf("expected driver postgres, got %s", driverName)
+		}
+		
+		expectedDSN := "host=testhost port=5432 user=testuser password=testpass dbname=testdb sslmode=disable"
+		if dataSourceName != expectedDSN {
+			return nil, fmt.Errorf("expected DSN %s, got %s", expectedDSN, dataSourceName)
+		}
+		
+		return mockDB, nil
+	}
+
+	// Mock the ping
+	mock.ExpectPing()
+
+	// Create a test config
+	config := Config{
+		Host:     "testhost",
+		Port:     5432,
+		User:     "testuser",
+		Password: "testpass",
+		Name:     "testdb",
+		SSLMode:  "disable",
+	}
+
+	// Call the New function
+	conn, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	// Check that the connection is not nil
+	if conn == nil {
+		t.Fatal("New() returned nil connection")
+	}
+
+	// Verify all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
+}
+
+// TestNewError tests the New function with an error
+func TestNewError(t *testing.T) {
+	// Create a mock DB with ping monitoring enabled
+	mockDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatalf("Failed to create mock DB: %v", err)
+	}
+	defer mockDB.Close()
+
+	// Mock the sql.Open function
+	originalOpen := sqlOpen
+	defer func() { sqlOpen = originalOpen }()
+	
+	sqlOpen = func(driverName, dataSourceName string) (*sql.DB, error) {
+		return mockDB, nil
+	}
+
+	// Mock the ping to return an error
+	expectedErr := errors.New("ping error")
+	mock.ExpectPing().WillReturnError(expectedErr)
+
+	// Create a test config
+	config := Config{
+		Host:     "testhost",
+		Port:     5432,
+		User:     "testuser",
+		Password: "testpass",
+		Name:     "testdb",
+		SSLMode:  "disable",
+	}
+
+	// Call the New function
+	conn, err := New(config)
+
+	// Check that the error is returned
+	if err == nil {
+		t.Fatal("New() expected error, got nil")
+	}
+
+	// Check that the connection is nil
+	if conn != nil {
+		t.Fatal("New() expected nil connection")
+	}
+
+	// Verify all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("Unfulfilled expectations: %v", err)
+	}
 }
 
 // TestConnection_Close tests the Close method

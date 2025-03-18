@@ -12,6 +12,59 @@ import (
 	"time"
 )
 
+// TestRunServer tests the runServer function
+func TestRunServer(t *testing.T) {
+	// Save original HTTP DefaultServeMux
+	originalServeMux := http.DefaultServeMux
+	defer func() {
+		http.DefaultServeMux = originalServeMux
+	}()
+	
+	// Reset DefaultServeMux for this test
+	http.DefaultServeMux = http.NewServeMux()
+	
+	// Run the server
+	shutdown, err := runServer()
+	if err != nil {
+		t.Fatalf("runServer() error = %v", err)
+	}
+	
+	// Make sure shutdown is not nil
+	if shutdown == nil {
+		t.Fatal("runServer() returned nil shutdown function")
+	}
+	
+	// Give the server a moment to start
+	time.Sleep(100 * time.Millisecond)
+	
+	// Try to connect to the server on the default port (8080)
+	resp, err := http.Get("http://localhost:8080/")
+	if err != nil {
+		t.Fatalf("Failed to connect to server: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	// Check the status code
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+	
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+	
+	// Check the response body
+	expectedBody := `{"status": "ok", "message": "Tiger-Tail Microblog API"}`
+	if string(body) != expectedBody {
+		t.Errorf("Expected body %q, got %q", expectedBody, string(body))
+	}
+	
+	// Call the shutdown function
+	shutdown()
+}
+
 // TestInitApp tests the initApp function
 func TestInitApp(t *testing.T) {
 	// Save original environment variables

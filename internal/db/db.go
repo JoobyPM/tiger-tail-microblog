@@ -8,6 +8,9 @@ import (
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
+// Variable for sql.Open to allow mocking in tests
+var sqlOpen = sql.Open
+
 // Config represents the database configuration
 type Config struct {
 	Host     string
@@ -32,7 +35,7 @@ func New(config Config) (*Connection, error) {
 	)
 
 	// Open connection
-	db, err := sql.Open("postgres", connStr)
+	db, err := sqlOpen("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database connection: %w", err)
 	}
