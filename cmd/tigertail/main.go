@@ -7,11 +7,34 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/JoobyPM/tiger-tail-microblog/internal/cache"
+	"github.com/JoobyPM/tiger-tail-microblog/internal/db"
 )
 
 func main() {
-	// Initialize configuration
-	fmt.Println("Initializing Tiger-Tail Microblog...")
+	fmt.Println("Starting TigerTail...")
+
+	// Read environment variables
+	dbDSN := getEnv("DB_DSN", "postgres://postgres:postgres@localhost:5432/tigertail?sslmode=disable")
+	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
+	redisPassword := getEnv("REDIS_PASSWORD", "")
+	redisDB := 0 // Default Redis DB
+	port := getEnv("PORT", "8080")
+
+	// Initialize database connection (stubbed)
+	_, err := db.NewPostgresConnection(dbDSN)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to database: %v", err)
+		// Continue execution - this is just a stub
+	}
+
+	// Initialize Redis connection (stubbed)
+	_, err = cache.NewRedisClient(redisAddr, redisPassword, redisDB)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to Redis: %v", err)
+		// Continue execution - this is just a stub
+	}
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -26,7 +49,6 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		port := "8080"
 		fmt.Printf("Starting server on port %s...\n", port)
 		if err := http.ListenAndServe(":"+port, nil); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Error starting server: %v", err)
@@ -35,5 +57,14 @@ func main() {
 
 	// Wait for termination signal
 	<-sigChan
-	fmt.Println("\nShutting down Tiger-Tail Microblog...")
+	fmt.Println("\nShutting down TigerTail...")
+}
+
+// getEnv retrieves an environment variable or returns a default value if not set
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }
