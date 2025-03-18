@@ -10,7 +10,118 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
+
+// MockPostService is a mock implementation of domain.PostService
+type MockPostService struct{}
+
+func (m *MockPostService) GetByID(id string) (*domain.PostWithUser, error) {
+	return &domain.PostWithUser{
+		Post: domain.Post{
+			ID:        id,
+			UserID:    "user_1",
+			Content:   "Test post content",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		Username: "testuser",
+	}, nil
+}
+
+func (m *MockPostService) Create(userID, content string) (*domain.Post, error) {
+	return &domain.Post{
+		ID:        "post_123",
+		UserID:    userID,
+		Content:   content,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}, nil
+}
+
+func (m *MockPostService) Update(id, userID, content string) (*domain.Post, error) {
+	return &domain.Post{
+		ID:        id,
+		UserID:    userID,
+		Content:   content,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}, nil
+}
+
+func (m *MockPostService) Delete(id, userID string) error {
+	return nil
+}
+
+func (m *MockPostService) ListByUser(userID string, page, limit int) ([]*domain.Post, int, error) {
+	posts := []*domain.Post{
+		{
+			ID:        "post_1",
+			UserID:    userID,
+			Content:   "Test post 1",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		{
+			ID:        "post_2",
+			UserID:    userID,
+			Content:   "Test post 2",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+	}
+	return posts, len(posts), nil
+}
+
+func (m *MockPostService) List(page, limit int) ([]*domain.PostWithUser, int, error) {
+	posts := []*domain.PostWithUser{
+		{
+			Post: domain.Post{
+				ID:        "post_1",
+				UserID:    "user_1",
+				Content:   "Test post 1",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			Username: "testuser1",
+		},
+		{
+			Post: domain.Post{
+				ID:        "post_2",
+				UserID:    "user_2",
+				Content:   "Test post 2",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			Username: "testuser2",
+		},
+	}
+	return posts, len(posts), nil
+}
+
+// MockPostCache is a mock implementation of PostCache
+type MockPostCache struct{}
+
+func (m *MockPostCache) GetPost(id string) (*domain.Post, error) {
+	return nil, fmt.Errorf("cache miss")
+}
+
+func (m *MockPostCache) SetPost(post *domain.Post) error {
+	return nil
+}
+
+func (m *MockPostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
+	return nil, fmt.Errorf("cache miss")
+}
+
+func (m *MockPostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
+	return nil
+}
+
+func (m *MockPostCache) InvalidatePosts() error {
+	return nil
+}
 
 func TestNew(t *testing.T) {
 	// Test cases
@@ -38,8 +149,12 @@ func TestNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Create mock services
+			mockPostService := &MockPostService{}
+			mockPostCache := &MockPostCache{}
+			
 			// Test
-			server := New(tc.config)
+			server := New(tc.config, mockPostService, mockPostCache)
 
 			// Assert
 			if server == nil {
@@ -72,11 +187,13 @@ func TestNew(t *testing.T) {
 
 func TestRegisterRoutes(t *testing.T) {
 	// Setup
+	mockPostService := &MockPostService{}
+	mockPostCache := &MockPostCache{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    8080,
 		BaseURL: "http://localhost:8080",
-	})
+	}, mockPostService, mockPostCache)
 
 	// Test
 	server.registerRoutes()
@@ -142,11 +259,13 @@ func TestRegisterRoutes(t *testing.T) {
 
 func TestHandleHealth(t *testing.T) {
 	// Setup
+	mockPostService := &MockPostService{}
+	mockPostCache := &MockPostCache{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    8080,
 		BaseURL: "http://localhost:8080",
-	})
+	}, mockPostService, mockPostCache)
 	handler := server.handleHealth()
 
 	// Create a request to pass to our handler
@@ -191,11 +310,13 @@ func TestHandleHealth(t *testing.T) {
 
 func TestHandleAPI(t *testing.T) {
 	// Setup
+	mockPostService := &MockPostService{}
+	mockPostCache := &MockPostCache{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    8080,
 		BaseURL: "http://localhost:8080",
-	})
+	}, mockPostService, mockPostCache)
 	handler := server.handleAPI()
 
 	// Create a request to pass to our handler
@@ -330,11 +451,13 @@ func TestStartAndStop(t *testing.T) {
 	// We'll use a goroutine to start the server and then stop it after a short delay
 
 	// Setup
+	mockPostService := &MockPostService{}
+	mockPostCache := &MockPostCache{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    0, // Use port 0 to let the OS choose a free port
 		BaseURL: "http://localhost",
-	})
+	}, mockPostService, mockPostCache)
 
 	// Create a custom HTTP server with a random port
 	listener, err := net.Listen("tcp", "localhost:0")

@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
 
 // Config represents the server configuration
@@ -18,18 +21,22 @@ type Config struct {
 
 // Server represents an HTTP server
 type Server struct {
-	config     Config
-	router     *http.ServeMux
-	httpServer *http.Server
+	config      Config
+	router      *http.ServeMux
+	httpServer  *http.Server
+	postService domain.PostService
+	postCache   PostCache
 }
 
 // New creates a new server
-func New(config Config) *Server {
+func New(config Config, postService domain.PostService, postCache PostCache) *Server {
 	router := http.NewServeMux()
 	
 	return &Server{
-		config: config,
-		router: router,
+		config:      config,
+		router:      router,
+		postService: postService,
+		postCache:   postCache,
 		httpServer: &http.Server{
 			Addr:         fmt.Sprintf("%s:%d", config.Host, config.Port),
 			Handler:      router,
@@ -63,6 +70,28 @@ func (s *Server) registerRoutes() {
 	
 	// API routes
 	s.router.HandleFunc("/api/", s.handleAPI())
+	
+	// Create post handler
+	postHandler := NewPostHandler(s.postService, s.postCache)
+	
+	// Post routes
+	s.router.HandleFunc("/api/posts", postHandler.GetPostsHandler())
+	s.router.HandleFunc("/api/posts/create", postHandler.CreatePostHandler())
+	
+	// Individual post route - must be last to avoid conflicts
+	s.router.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
+		// Extract post ID from URL
+		path := r.URL.Path
+		parts := strings.Split(path, "/")
+		if len(parts) < 4 || parts[3] == "" || parts[3] == "create" {
+			// Not a post ID request, let other handlers handle it
+			http.NotFound(w, r)
+			return
+		}
+		
+		// Handle the post request
+		postHandler.GetPostHandler()(w, r)
+	})
 }
 
 // handleHealth returns a handler for health check requests

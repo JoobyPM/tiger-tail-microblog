@@ -1,10 +1,28 @@
 package cache
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
+
+// ErrCacheMiss is returned when a key is not found in the cache
+var ErrCacheMiss = errors.New("cache miss")
+
+// RedisClientInterface defines the interface for Redis client operations
+type RedisClientInterface interface {
+	Get(key string) ([]byte, error)
+	Set(key string, value []byte, expiration time.Duration) error
+	Delete(key string) error
+	Exists(key string) (bool, error)
+	Ping() error
+	Close() error
+	FlushDB() error
+}
 
 // RedisClient represents a Redis client
 type RedisClient struct {
@@ -74,4 +92,143 @@ func (r *RedisClient) Close() error {
 func (r *RedisClient) FlushDB() error {
 	log.Println("Stub: Would flush Redis database")
 	return nil
+}
+
+// PostCache implements caching for posts
+type PostCache struct {
+	client RedisClientInterface
+}
+
+// NewPostCache creates a new post cache
+func NewPostCache(client RedisClientInterface) *PostCache {
+	return &PostCache{
+		client: client,
+	}
+}
+
+// GetPosts retrieves posts from the cache
+func (c *PostCache) GetPosts() ([]*domain.Post, error) {
+	log.Println("Stub: Would get posts from Redis")
+	
+	// Get posts from Redis
+	data, err := c.client.Get("posts")
+	if err != nil {
+		return nil, err
+	}
+	
+	// Unmarshal posts
+	var posts []*domain.Post
+	err = json.Unmarshal(data, &posts)
+	if err != nil {
+		return nil, err
+	}
+	
+	return posts, nil
+}
+
+// SetPosts stores posts in the cache
+func (c *PostCache) SetPosts(posts []*domain.Post) error {
+	log.Printf("Stub: Would set %d posts in Redis", len(posts))
+	
+	// Marshal posts
+	data, err := json.Marshal(posts)
+	if err != nil {
+		return err
+	}
+	
+	// Set posts in Redis
+	return c.client.Set("posts", data, 5*time.Minute)
+}
+
+// GetPostsWithUser retrieves posts with user information from the cache
+func (c *PostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
+	log.Println("Stub: Would get posts with user from Redis")
+	
+	// Get posts from Redis
+	data, err := c.client.Get("posts_with_user")
+	if err != nil {
+		return nil, err
+	}
+	
+	// Unmarshal posts
+	var posts []*domain.PostWithUser
+	err = json.Unmarshal(data, &posts)
+	if err != nil {
+		return nil, err
+	}
+	
+	return posts, nil
+}
+
+// SetPostsWithUser stores posts with user information in the cache
+func (c *PostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
+	log.Printf("Stub: Would set %d posts with user in Redis", len(posts))
+	
+	// Marshal posts
+	data, err := json.Marshal(posts)
+	if err != nil {
+		return err
+	}
+	
+	// Set posts in Redis
+	return c.client.Set("posts_with_user", data, 5*time.Minute)
+}
+
+// InvalidatePosts invalidates the posts cache
+func (c *PostCache) InvalidatePosts() error {
+	log.Println("Stub: Would invalidate posts cache")
+	
+	// Delete posts from Redis
+	err1 := c.client.Delete("posts")
+	err2 := c.client.Delete("posts_with_user")
+	
+	if err1 != nil {
+		return err1
+	}
+	return err2
+}
+
+// GetPost retrieves a post from the cache
+func (c *PostCache) GetPost(id string) (*domain.Post, error) {
+	log.Printf("Stub: Would get post %s from Redis", id)
+	
+	// Get post from Redis
+	key := fmt.Sprintf("post:%s", id)
+	data, err := c.client.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Unmarshal post
+	var post domain.Post
+	err = json.Unmarshal(data, &post)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &post, nil
+}
+
+// SetPost stores a post in the cache
+func (c *PostCache) SetPost(post *domain.Post) error {
+	log.Printf("Stub: Would set post %s in Redis", post.ID)
+	
+	// Marshal post
+	key := fmt.Sprintf("post:%s", post.ID)
+	data, err := json.Marshal(post)
+	if err != nil {
+		return err
+	}
+	
+	// Set post in Redis
+	return c.client.Set(key, data, 5*time.Minute)
+}
+
+// InvalidatePost invalidates a post in the cache
+func (c *PostCache) InvalidatePost(id string) error {
+	log.Printf("Stub: Would invalidate post %s in Redis", id)
+	
+	// Delete post from Redis
+	key := fmt.Sprintf("post:%s", id)
+	return c.client.Delete(key)
 }
