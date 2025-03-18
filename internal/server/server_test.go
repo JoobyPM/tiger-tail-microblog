@@ -100,7 +100,7 @@ func (m *MockPostService) List(page, limit int) ([]*domain.PostWithUser, int, er
 	return posts, len(posts), nil
 }
 
-// MockPostCache is a mock implementation of PostCache
+// MockPostCache is a mock implementation of PostCache and CachePinger
 type MockPostCache struct{}
 
 func (m *MockPostCache) GetPost(id string) (*domain.Post, error) {
@@ -120,6 +120,17 @@ func (m *MockPostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
 }
 
 func (m *MockPostCache) InvalidatePosts() error {
+	return nil
+}
+
+func (m *MockPostCache) Ping() error {
+	return nil
+}
+
+// MockDBPinger is a mock implementation of DBPinger
+type MockDBPinger struct{}
+
+func (m *MockDBPinger) Ping() error {
 	return nil
 }
 
@@ -152,9 +163,10 @@ func TestNew(t *testing.T) {
 			// Create mock services
 			mockPostService := &MockPostService{}
 			mockPostCache := &MockPostCache{}
+			mockDB := &MockDBPinger{}
 			
 			// Test
-			server := New(tc.config, mockPostService, mockPostCache)
+			server := New(tc.config, mockPostService, mockPostCache, mockDB, mockPostCache)
 
 			// Assert
 			if server == nil {
@@ -189,11 +201,12 @@ func TestRegisterRoutes(t *testing.T) {
 	// Setup
 	mockPostService := &MockPostService{}
 	mockPostCache := &MockPostCache{}
+	mockDB := &MockDBPinger{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    8080,
 		BaseURL: "http://localhost:8080",
-	}, mockPostService, mockPostCache)
+	}, mockPostService, mockPostCache, mockDB, mockPostCache)
 
 	// Test
 	server.registerRoutes()
@@ -261,11 +274,12 @@ func TestHandleHealth(t *testing.T) {
 	// Setup
 	mockPostService := &MockPostService{}
 	mockPostCache := &MockPostCache{}
+	mockDB := &MockDBPinger{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    8080,
 		BaseURL: "http://localhost:8080",
-	}, mockPostService, mockPostCache)
+	}, mockPostService, mockPostCache, mockDB, mockPostCache)
 	handler := server.handleHealth()
 
 	// Create a request to pass to our handler
@@ -312,11 +326,12 @@ func TestHandleAPI(t *testing.T) {
 	// Setup
 	mockPostService := &MockPostService{}
 	mockPostCache := &MockPostCache{}
+	mockDB := &MockDBPinger{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    8080,
 		BaseURL: "http://localhost:8080",
-	}, mockPostService, mockPostCache)
+	}, mockPostService, mockPostCache, mockDB, mockPostCache)
 	handler := server.handleAPI()
 
 	// Create a request to pass to our handler
@@ -453,11 +468,12 @@ func TestStartAndStop(t *testing.T) {
 	// Setup
 	mockPostService := &MockPostService{}
 	mockPostCache := &MockPostCache{}
+	mockDB := &MockDBPinger{}
 	server := New(Config{
 		Host:    "localhost",
 		Port:    0, // Use port 0 to let the OS choose a free port
 		BaseURL: "http://localhost",
-	}, mockPostService, mockPostCache)
+	}, mockPostService, mockPostCache, mockDB, mockPostCache)
 
 	// Create a custom HTTP server with a random port
 	listener, err := net.Listen("tcp", "localhost:0")

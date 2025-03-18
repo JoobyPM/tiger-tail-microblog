@@ -9,6 +9,65 @@ import (
 	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
 
+// LivezHandler handles liveness probe requests
+func LivezHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK."))
+	}
+}
+
+// ReadyzHandler handles readiness probe requests
+func ReadyzHandler(db DBPinger, cache CachePinger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Check database connection
+		dbStatus := "up"
+		if err := db.Ping(); err != nil {
+			dbStatus = "down"
+		}
+
+		// Check cache connection
+		cacheStatus := "up"
+		if err := cache.Ping(); err != nil {
+			cacheStatus = "down"
+		}
+
+		// Determine overall status
+		status := http.StatusOK
+		if dbStatus == "down" || cacheStatus == "down" {
+			status = http.StatusServiceUnavailable
+		}
+
+		// Determine status message
+		statusMsg := "ready"
+		if status != http.StatusOK {
+			statusMsg = "not ready"
+		}
+
+		// Respond with status
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": statusMsg,
+			"checks": map[string]string{
+				"database": dbStatus,
+				"cache":    cacheStatus,
+			},
+		})
+	}
+}
+
+// DBPinger defines the interface for database ping operations
+type DBPinger interface {
+	Ping() error
+}
+
+// CachePinger defines the interface for cache ping operations
+type CachePinger interface {
+	Ping() error
+}
+
 // PostHandler handles post-related requests
 type PostHandler struct {
 	postService domain.PostService

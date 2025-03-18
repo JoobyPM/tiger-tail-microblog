@@ -26,10 +26,12 @@ type Server struct {
 	httpServer  *http.Server
 	postService domain.PostService
 	postCache   PostCache
+	db          DBPinger
+	cache       CachePinger
 }
 
 // New creates a new server
-func New(config Config, postService domain.PostService, postCache PostCache) *Server {
+func New(config Config, postService domain.PostService, postCache PostCache, db DBPinger, cache CachePinger) *Server {
 	router := http.NewServeMux()
 	
 	return &Server{
@@ -37,6 +39,8 @@ func New(config Config, postService domain.PostService, postCache PostCache) *Se
 		router:      router,
 		postService: postService,
 		postCache:   postCache,
+		db:          db,
+		cache:       cache,
 		httpServer: &http.Server{
 			Addr:         fmt.Sprintf("%s:%d", config.Host, config.Port),
 			Handler:      router,
@@ -65,8 +69,10 @@ func (s *Server) Stop(ctx context.Context) error {
 
 // registerRoutes registers the server routes
 func (s *Server) registerRoutes() {
-	// Health check
+	// Health checks
 	s.router.HandleFunc("/health", s.handleHealth())
+	s.router.HandleFunc("/livez", LivezHandler())
+	s.router.HandleFunc("/readyz", ReadyzHandler(s.db, s.cache))
 	
 	// API routes
 	s.router.HandleFunc("/api/", s.handleAPI())
