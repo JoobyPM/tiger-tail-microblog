@@ -2,8 +2,9 @@ services:
   # Main application service
   tigertail:
     build:
-      context: .
+      context: ../../
       dockerfile: cmd/tigertail/Dockerfile
+      no_cache: true
     ports:
       - "${SERVER_PORT:-8080}:8080"
     environment:
@@ -11,7 +12,7 @@ services:
       - DB_PORT=${DB_PORT:-5432}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_NAME=${DB_NAME:-tigertail}
+      - DB_NAME=${DB_NAME:-tigertail_test}
       - DB_SSLMODE=${DB_SSLMODE:-disable}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
@@ -19,9 +20,17 @@ services:
       - REDIS_DB=${REDIS_DB:-0}
       - SERVER_PORT=${SERVER_PORT:-8080}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/livez || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
 
   # PostgreSQL database service
   postgres:
@@ -31,9 +40,9 @@ services:
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${DB_NAME:-tigertail}
+      - POSTGRES_DB=${DB_NAME:-tigertail_test}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_test_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -47,7 +56,7 @@ services:
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - redis_data:/data
+      - redis_test_data:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -55,6 +64,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # Test runner service
+  test:
+    build:
+      context: ../../
+      dockerfile: test/e2e/Dockerfile.test
+    depends_on:
+      tigertail:
+        condition: service_healthy
+    environment:
+      - API_URL=http://tigertail:8080
+    volumes:
+      - ../../:/app
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["cd /app && go test -v ./test/e2e/..."]
+
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_test_data:
+  redis_test_data:

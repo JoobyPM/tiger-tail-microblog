@@ -18,12 +18,18 @@ TigerTail is a minimal microblog service, built in Go, featuring:
    cd tiger-tail-microblog
    ```
 
-2. **Run locally** with Docker Compose:
+2. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env file if needed
+   ```
+
+3. **Run locally** with Docker Compose:
    ```bash
    docker-compose up --build
    ```
 
-3. **Test endpoints**:
+4. **Test endpoints**:
    - **GET** `/posts` - fetch posts from Redis (or DB if cache is empty).
    - **POST** `/posts` - create new post (requires Basic Auth with env-based credentials).
    - **GET** `/livez` - liveness probe.
@@ -31,6 +37,25 @@ TigerTail is a minimal microblog service, built in Go, featuring:
 
 See the [docs](./docs) folder for more details on architecture, usage, and FAQs.
 
+
+## Development
+
+### Running Tests
+
+The project includes both unit tests and integration/e2e tests:
+
+```bash
+# Run unit tests
+make test-unit
+
+# Run integration/e2e tests (requires Docker)
+make test-e2e
+
+# Run all tests
+make test
+```
+
+The integration tests use Docker Compose to spin up the application with PostgreSQL and Redis, then run tests against the running services.
 
 ## Contributing
 

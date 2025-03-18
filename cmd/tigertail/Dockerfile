@@ -17,8 +17,8 @@ RUN go build -o tigertail ./cmd/tigertail
 # ----- 2. Final stage: Minimal runtime image -----
 FROM alpine:3.18
 
-# Add CA certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates
+# Add CA certificates, curl, and wget for HTTPS requests and healthchecks
+RUN apk --no-cache add ca-certificates curl wget
 
 WORKDIR /app
 
