@@ -12,9 +12,8 @@ import (
 	"github.com/JoobyPM/tiger-tail-microblog/internal/db"
 )
 
-func main() {
-	fmt.Println("Starting TigerTail...")
-
+// initApp initializes the application components
+func initApp() (string, error) {
 	// Read environment variables
 	dbDSN := getEnv("DB_DSN", "postgres://postgres:postgres@localhost:5432/tigertail?sslmode=disable")
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
@@ -36,24 +35,46 @@ func main() {
 		// Continue execution - this is just a stub
 	}
 
-	// Setup signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	return port, nil
+}
 
-	// Setup HTTP server
+// setupRoutes sets up the HTTP routes
+func setupRoutes() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status": "ok", "message": "Tiger-Tail Microblog API"}`))
 	})
+}
 
-	// Start server in a goroutine
+// startServer starts the HTTP server
+func startServer(port string) {
 	go func() {
 		fmt.Printf("Starting server on port %s...\n", port)
 		if err := http.ListenAndServe(":"+port, nil); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Error starting server: %v", err)
 		}
 	}()
+}
+
+func main() {
+	fmt.Println("Starting TigerTail...")
+
+	// Initialize the application
+	port, err := initApp()
+	if err != nil {
+		log.Fatalf("Failed to initialize application: %v", err)
+	}
+
+	// Setup routes
+	setupRoutes()
+
+	// Start server
+	startServer(port)
+
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Wait for termination signal
 	<-sigChan
