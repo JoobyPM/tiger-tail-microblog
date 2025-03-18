@@ -1,0 +1,35 @@
+### .gitignore
+
+Below is a typical `.gitignore` tailored for Go, Docker, and general development:
+
+```
+# Binaries, build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+
+# Go cache
+*.log
+*.test
+*.prof
+cover.out
+
+# Dependency directories
+vendor/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE settings
+.vscode/
+.idea/
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# Coverage
+coverage.txt
