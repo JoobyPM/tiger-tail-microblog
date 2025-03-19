@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 	"testing"
@@ -45,13 +46,13 @@ func TestMainWithExit(t *testing.T) {
 		// Send a termination signal
 		p, err := os.FindProcess(os.Getpid())
 		if err != nil {
-			t.Fatalf("Failed to find process: %v", err)
+			panic(fmt.Sprintf("Failed to find process: %v", err))
 		}
 		
 		// Send SIGINT
 		err = p.Signal(syscall.SIGINT)
 		if err != nil {
-			t.Fatalf("Failed to send signal: %v", err)
+			panic(fmt.Sprintf("Failed to send signal: %v", err))
 		}
 	}()
 	

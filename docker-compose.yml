@@ -18,6 +18,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB:-0}
       - SERVER_PORT=${SERVER_PORT:-8080}
+      - USE_REAL_DB=true
+      - USE_REAL_REDIS=true
     depends_on:
       - postgres
       - redis

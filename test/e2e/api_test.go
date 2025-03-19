@@ -1,303 +1,234 @@
 package e2e
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 )
 
-// TestConfig holds the test configuration
-type TestConfig struct {
-	APIURL string
-}
-
-// LoadTestConfig loads the test configuration from environment variables
-func LoadTestConfig() *TestConfig {
-	return &TestConfig{
-		APIURL: getEnv("API_URL", "http://localhost:8080"),
+// TestCreateAndReadPosts tests creating and reading posts with authentication
+func TestCreateAndReadPosts(t *testing.T) {
+	// Get the API URL from environment variable or use default
+	apiURL := os.Getenv("API_URL")
+	if apiURL == "" {
+		apiURL = "http://localhost:8080"
 	}
-}
-
-// getEnv retrieves an environment variable or returns a default value if not set
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
-
-// TestHealthEndpoint tests the health endpoint
-func TestHealthEndpoint(t *testing.T) {
-	config := LoadTestConfig()
-	url := fmt.Sprintf("%s/health", config.APIURL)
-
-	// Make the request
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
-	}
-
-	// Check the content type
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("Expected content type %s, got %s", "application/json", contentType)
-	}
-
-	// Parse the response
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Check the status field
-	status, ok := response["status"].(string)
-	if !ok {
-		t.Fatalf("Expected status field to be a string")
-	}
-	if status != "ok" {
-		t.Errorf("Expected status to be 'ok', got '%s'", status)
-	}
-}
-
-// TestLivezEndpoint tests the /livez endpoint
-func TestLivezEndpoint(t *testing.T) {
-	config := LoadTestConfig()
-	url := fmt.Sprintf("%s/livez", config.APIURL)
-
-	// Make the request
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
-	}
-
-	// Check the content type
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "text/plain" {
-		t.Errorf("Expected content type %s, got %s", "text/plain", contentType)
-	}
-
-	// Read the response body
-	var body []byte
-	body, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
-
-	// Check the response body
-	if string(body) != "OK." {
-		t.Errorf("Expected body to be 'OK.', got '%s'", string(body))
-	}
-}
-
-// TestReadyzEndpoint tests the /readyz endpoint
-func TestReadyzEndpoint(t *testing.T) {
-	config := LoadTestConfig()
-	url := fmt.Sprintf("%s/readyz", config.APIURL)
-
-	// Make the request
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
-	}
-
-	// Check the content type
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("Expected content type %s, got %s", "application/json", contentType)
-	}
-
-	// Parse the response
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Check the status field
-	status, ok := response["status"].(string)
-	if !ok {
-		t.Fatalf("Expected status field to be a string")
-	}
-	if status != "ready" {
-		t.Errorf("Expected status to be 'ready', got '%s'", status)
-	}
-
-	// Check the checks field
-	checks, ok := response["checks"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected checks field to be a map")
-	}
-
-	// Check the database status
-	dbStatus, ok := checks["database"].(string)
-	if !ok {
-		t.Fatalf("Expected database status to be a string")
-	}
-	if dbStatus != "up" {
-		t.Errorf("Expected database status to be 'up', got '%s'", dbStatus)
-	}
-
-	// Check the cache status
-	cacheStatus, ok := checks["cache"].(string)
-	if !ok {
-		t.Fatalf("Expected cache status to be a string")
-	}
-	if cacheStatus != "up" {
-		t.Errorf("Expected cache status to be 'up', got '%s'", cacheStatus)
-	}
-}
-
-// TestAPIEndpoint tests the API endpoint
-func TestAPIEndpoint(t *testing.T) {
-	config := LoadTestConfig()
-	url := fmt.Sprintf("%s/api", config.APIURL)
-
-	// Make the request
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
-	}
-
-	// Check the content type
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("Expected content type %s, got %s", "application/json", contentType)
-	}
-
-	// Parse the response
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Check the message field
-	message, ok := response["message"].(string)
-	if !ok {
-		t.Fatalf("Expected message field to be a string")
-	}
-	if message != "Tiger-Tail Microblog API" {
-		t.Errorf("Expected message to be 'Tiger-Tail Microblog API', got '%s'", message)
-	}
-
-	// Check the version field
-	version, ok := response["version"].(string)
-	if !ok {
-		t.Fatalf("Expected version field to be a string")
-	}
-	if version == "" {
-		t.Errorf("Expected version to be non-empty")
-	}
-}
-
-// TestPostsEndpoint tests the posts endpoint
-func TestPostsEndpoint(t *testing.T) {
-	config := LoadTestConfig()
-	url := fmt.Sprintf("%s/api/posts", config.APIURL)
-
-	// Make the request
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
-	}
-
-	// Check the content type
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("Expected content type %s, got %s", "application/json", contentType)
-	}
-
-	// Parse the response
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Check the posts field
-	posts, ok := response["posts"].([]interface{})
-	if !ok {
-		t.Fatalf("Expected posts field to be an array")
-	}
-
-	// Check that we have some posts
-	if len(posts) == 0 {
-		t.Errorf("Expected at least one post")
-	}
-
-	// Check the source field (should be "database" or "cache")
-	source, ok := response["source"].(string)
-	if !ok {
-		t.Fatalf("Expected source field to be a string")
-	}
-	if source != "database" && source != "cache" {
-		t.Errorf("Expected source to be 'database' or 'cache', got '%s'", source)
-	}
-}
-
-// TestMain is the entry point for the test suite
-func TestMain(m *testing.M) {
-	// Wait for services to be ready
-	config := LoadTestConfig()
-	waitForService(config.APIURL)
-
-	// Run the tests
-	code := m.Run()
-
-	// Exit with the test status code
-	os.Exit(code)
-}
-
-// waitForService waits for the service to be ready
-func waitForService(url string) {
-	maxRetries := 30
-	retryInterval := 1 * time.Second
-
-	for i := 0; i < maxRetries; i++ {
-		resp, err := http.Get(fmt.Sprintf("%s/livez", url))
-		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
-			fmt.Println("Service is ready")
-			return
+	
+	// Test root endpoint
+	t.Run("Root", func(t *testing.T) {
+		resp, err := http.Get(apiURL + "/")
+		if err != nil {
+			t.Fatalf("Failed to get root endpoint: %v", err)
 		}
-		if resp != nil {
-			resp.Body.Close()
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Status code = %d, want %d", resp.StatusCode, http.StatusOK)
 		}
-		fmt.Printf("Waiting for service to be ready (attempt %d/%d)...\n", i+1, maxRetries)
-		time.Sleep(retryInterval)
-	}
-
-	fmt.Println("Service is not ready after maximum retries")
+		
+		var response map[string]string
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		
+		if response["status"] != "ok" {
+			t.Errorf("status = %s, want %s", response["status"], "ok")
+		}
+		if response["message"] != "Tiger-Tail Microblog API" {
+			t.Errorf("message = %s, want %s", response["message"], "Tiger-Tail Microblog API")
+		}
+	})
+	
+	// Test livez endpoint
+	t.Run("Livez", func(t *testing.T) {
+		resp, err := http.Get(apiURL + "/livez")
+		if err != nil {
+			t.Fatalf("Failed to get livez endpoint: %v", err)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Status code = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		
+		contentType := resp.Header.Get("Content-Type")
+		if contentType != "text/plain" {
+			t.Errorf("Content-Type = %s, want %s", contentType, "text/plain")
+		}
+		
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+		
+		if string(body) != "OK." {
+			t.Errorf("body = %s, want %s", string(body), "OK.")
+		}
+	})
+	
+	// Test posts endpoint - GET
+	t.Run("Posts", func(t *testing.T) {
+		resp, err := http.Get(apiURL + "/api/posts")
+		if err != nil {
+			t.Fatalf("Failed to get posts endpoint: %v", err)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Status code = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		
+		contentType := resp.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			t.Errorf("Content-Type = %s, want %s", contentType, "application/json")
+		}
+		
+		var response map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		
+		posts, ok := response["posts"].([]interface{})
+		if !ok {
+			t.Fatalf("posts is not an array")
+		}
+		
+		fmt.Printf("Found %d posts\n", len(posts))
+	})
+	
+	// Test posts endpoint - POST (unauthorized)
+	t.Run("CreatePostUnauthorized", func(t *testing.T) {
+		// Create request body
+		requestBody := map[string]string{
+			"content": "Test post content",
+		}
+		requestJSON, err := json.Marshal(requestBody)
+		if err != nil {
+			t.Fatalf("Failed to marshal request body: %v", err)
+		}
+		
+		// Create request
+		req, err := http.NewRequest("POST", apiURL + "/api/posts", bytes.NewBuffer(requestJSON))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		
+		// Send request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to send request: %v", err)
+		}
+		defer resp.Body.Close()
+		
+		// Check response
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Status code = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
+		}
+		
+		var response map[string]string
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		
+		if response["error"] != "Unauthorized" {
+			t.Errorf("error = %s, want %s", response["error"], "Unauthorized")
+		}
+	})
+	
+	// Test posts endpoint - POST (authorized)
+	t.Run("CreatePostAuthorized", func(t *testing.T) {
+		// Create request body
+		requestBody := map[string]string{
+			"content": "Test post content created at " + time.Now().Format(time.RFC3339),
+		}
+		requestJSON, err := json.Marshal(requestBody)
+		if err != nil {
+			t.Fatalf("Failed to marshal request body: %v", err)
+		}
+		
+		// Create request
+		req, err := http.NewRequest("POST", apiURL + "/api/posts", bytes.NewBuffer(requestJSON))
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.SetBasicAuth("admin", "password") // Use the default credentials
+		
+		// Send request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to send request: %v", err)
+		}
+		defer resp.Body.Close()
+		
+		// Check response
+		if resp.StatusCode != http.StatusCreated {
+			t.Errorf("Status code = %d, want %d", resp.StatusCode, http.StatusCreated)
+		}
+		
+		var response map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		
+		if response["message"] != "Post created successfully" {
+			t.Errorf("message = %s, want %s", response["message"], "Post created successfully")
+		}
+		
+		post, ok := response["post"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("post is not an object")
+		}
+		
+		if post["content"] != requestBody["content"] {
+			t.Errorf("post.content = %s, want %s", post["content"], requestBody["content"])
+		}
+		
+		// Verify the post was created by getting all posts
+		resp, err = http.Get(apiURL + "/api/posts")
+		if err != nil {
+			t.Fatalf("Failed to get posts endpoint: %v", err)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Status code = %d, want %d", resp.StatusCode, http.StatusOK)
+		}
+		
+		var postsResponse map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&postsResponse); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		
+		posts, ok := postsResponse["posts"].([]interface{})
+		if !ok {
+			t.Fatalf("posts is not an array")
+		}
+		
+		// Check if the post is in the list
+		found := false
+		for _, p := range posts {
+			post, ok := p.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			
+			if post["content"] == requestBody["content"] {
+				found = true
+				break
+			}
+		}
+		
+		if !found {
+			t.Errorf("Created post not found in the list of posts")
+		}
+	})
 }

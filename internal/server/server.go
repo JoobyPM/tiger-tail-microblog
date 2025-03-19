@@ -124,8 +124,8 @@ func (s *Server) handleAPI() http.HandlerFunc {
 	}
 }
 
-// respondJSON sends a JSON response
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
+// serverRespondJSON sends a JSON response (renamed to avoid conflict with handlers.go)
+func serverRespondJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if data != nil {
@@ -133,9 +133,9 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 	}
 }
 
-// respondError sends an error response
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{
+// serverRespondError sends an error response (renamed to avoid conflict with handlers.go)
+func serverRespondError(w http.ResponseWriter, status int, message string) {
+	serverRespondJSON(w, status, map[string]string{
 		"error":   http.StatusText(status),
 		"message": message,
 	})

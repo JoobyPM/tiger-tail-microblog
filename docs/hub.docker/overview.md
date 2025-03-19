@@ -23,8 +23,8 @@ docker-compose up --build
 
 ## API Endpoints
 
-- `GET /posts` - Fetch posts (cached in Redis)
-- `POST /posts` - Create new post (requires Basic Auth)
+- `GET /api/posts` - Fetch posts (cached in Redis)
+- `POST /api/posts` - Create new post (requires Basic Auth)
 - `GET /livez` - Liveness probe
 - `GET /readyz` - Readiness probe
 

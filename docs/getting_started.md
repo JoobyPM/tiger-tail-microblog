@@ -1,81 +1,175 @@
 # Getting Started with Tiger-Tail Microblog
 
+This guide will help you set up, run, test, and deploy the Tiger-Tail Microblog application, following our [Tiger Style](tiger_style.md) principles.
+
 ## Prerequisites
 
 - Go 1.21 or higher
-- Docker (for local development)
+- Docker and Docker Compose
 - Git
+- Helm (for Kubernetes deployment)
+- kubectl (for Kubernetes deployment)
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/JoobyPM/tiger-tail-microblog.git
-   cd tiger-tail-microblog
-   ```
+### 1. Clone the Repository
 
-2. Install dependencies:
-   ```
-   go mod download
-   ```
-
-## Configuration
-
-The application can be configured using environment variables or a configuration file.
-
-### Environment Variables
-
-- `TT_DB_HOST`: Database host
-- `TT_DB_PORT`: Database port
-- `TT_DB_USER`: Database username
-- `TT_DB_PASSWORD`: Database password
-- `TT_DB_NAME`: Database name
-- `TT_SERVER_PORT`: Server port
-
-### Configuration File
-
-Create a `config.yaml` file in the root directory:
-
-```yaml
-database:
-  host: localhost
-  port: 5432
-  user: postgres
-  password: password
-  name: tigertail
-
-server:
-  port: 8080
+```bash
+git clone https://github.com/JoobyPM/tiger-tail-microblog.git
+cd tiger-tail-microblog
 ```
 
-## Running the Application
+### 2. Configure Environment Variables
 
-### Development Mode
-
+```bash
+cp .env.example .env
+# Edit .env file with your configuration
 ```
+
+### 3. Run with Docker Compose
+
+The fastest way to get started is with Docker Compose, which sets up PostgreSQL, Redis, and the application:
+
+```bash
+docker-compose up --build
+```
+
+This will start the application at http://localhost:8080.
+
+### 4. Test the API
+
+Once the application is running, you can test the API endpoints:
+
+```bash
+# Get all posts
+curl http://localhost:8080/api/posts
+
+# Create a new post (requires authentication)
+curl -X POST http://localhost:8080/api/posts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Basic $(echo -n admin:password | base64)" \
+  -d '{"content":"Hello, Tiger-Tail!"}'
+```
+
+## Development Setup
+
+### 1. Install Dependencies
+
+```bash
+go mod download
+```
+
+### 2. Run PostgreSQL and Redis
+
+You can use Docker Compose to run just the dependencies:
+
+```bash
+docker-compose up postgres redis -d
+```
+
+### 3. Run the Application Locally
+
+```bash
 go run cmd/tigertail/main.go
 ```
 
-### Production Mode
+## Configuration
 
+The application can be configured using environment variables or a .env file.
+
+### Environment Variables
+
+| Variable       | Description                                | Default   |
+|----------------|--------------------------------------------|-----------|
+| DB_HOST        | PostgreSQL host                            | postgres  |
+| DB_PORT        | PostgreSQL port                            | 5432      |
+| DB_USER        | PostgreSQL username                        | postgres  |
+| DB_PASSWORD    | PostgreSQL password                        | postgres  |
+| DB_NAME        | PostgreSQL database name                   | tigertail |
+| DB_SSLMODE     | PostgreSQL SSL mode                        | disable   |
+| REDIS_HOST     | Redis host                                 | redis     |
+| REDIS_PORT     | Redis port                                 | 6379      |
+| REDIS_PASSWORD | Redis password                             |           |
+| REDIS_DB       | Redis database                             | 0         |
+| SERVER_PORT    | Server port                                | 8080      |
+| USE_REAL_DB    | Use real PostgreSQL (true) or stub (false) | false     |
+| USE_REAL_REDIS | Use real Redis (true) or stub (false)      | false     |
+| AUTH_USERNAME  | Username for Basic Auth                    | admin     |
+| AUTH_PASSWORD  | Password for Basic Auth                    | password  |
+
+## Running Tests
+
+Tiger-Tail includes comprehensive test suites following our Tiger Style principles.
+
+### Unit Tests
+
+```bash
+make test-unit
+# or
+go test -v ./internal/... ./cmd/...
 ```
-go build -o tigertail cmd/tigertail/main.go
-./tigertail
+
+### Integration/E2E Tests
+
+```bash
+make test-e2e
+# or
+./test/e2e/run_tests.sh
 ```
 
-## Testing
+### All Tests
 
-```
-go test ./...
-```
-
-## Docker Deployment
-
-```
-docker build -t tigertail .
-docker run -p 8080:8080 tigertail
+```bash
+make test
 ```
 
-## Kubernetes Deployment
+## Building and Deploying
 
-See the `charts/tigertail` directory for Helm charts.
+### Building Docker Images
+
+```bash
+# Configure Docker Hub username in .env
+HUB_USERNAME=yourusername
+REPO_NAME=tigertail
+VERSION=0.1.0
+
+# Build the Docker image
+make docker-build
+
+# Push to Docker Hub
+make docker-push
+
+# Build and push multi-architecture image
+make docker-buildx
+```
+
+### Deploying with Helm
+
+Tiger-Tail includes Helm charts for Kubernetes deployment:
+
+```bash
+# Update Helm dependencies
+make helm-deps
+
+# Package the Helm chart
+make helm-package
+
+# Install locally (for testing)
+make helm-install
+
+# Push to Docker Hub OCI registry
+make helm-push
+```
+
+To deploy from the OCI registry:
+
+```bash
+helm install tigertail oci://registry-1.docker.io/yourusername/tiger-tail --version 0.1.0
+```
+
+## Next Steps
+
+- Check out the [Architecture](architecture.md) document to understand the system design
+- Explore the [API Endpoints](api_endpoints.md) documentation
+- Read the [FAQ](faq.md) for common questions and troubleshooting
+- Review our [Tiger Style](tiger_style.md) guide for coding principles

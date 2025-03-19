@@ -1,240 +1,252 @@
-# API Endpoints
+# Tiger-Tail API Endpoints
 
-This document describes the API endpoints available in the Tiger-Tail Microblog application.
+This document describes the API endpoints available in the Tiger-Tail Microblog application, following our [Tiger Style](tiger_style.md) principles of safety, performance, and developer experience.
 
-## Authentication
+## Overview
 
-### POST /api/auth/login
+Tiger-Tail exposes a RESTful API with the following characteristics:
 
-Authenticates a user and returns a JWT token.
+- All endpoints return JSON responses
+- Authentication is done via Basic Auth
+- All timestamps are in ISO 8601 format (UTC)
+- Pagination is supported for list endpoints
+- Rate limiting is applied to prevent abuse
+- Error responses follow a consistent format
 
-**Request:**
+## Base URL
+
+For local development: `http://localhost:8080`
+For production: `https://your-deployment-url`
+
+## Health Check Endpoints
+
+### GET /livez
+
+Liveness probe for Kubernetes.
+
+**Response (200 OK):**
 ```json
 {
-  "username": "string",
-  "password": "string"
+  "status": "alive"
 }
 ```
 
-**Response:**
+### GET /readyz
+
+Readiness probe for Kubernetes.
+
+**Response (200 OK):**
 ```json
 {
-  "token": "string",
-  "expires_at": "string (ISO 8601 datetime)"
-}
-```
-
-### POST /api/auth/register
-
-Registers a new user.
-
-**Request:**
-```json
-{
-  "username": "string",
-  "email": "string",
-  "password": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "string",
-  "username": "string",
-  "created_at": "string (ISO 8601 datetime)"
-}
-```
-
-## Posts
-
-### GET /api/posts
-
-Returns a list of posts.
-
-**Query Parameters:**
-- `page`: Page number (default: 1)
-- `limit`: Number of posts per page (default: 10)
-- `user_id`: Filter by user ID (optional)
-
-**Response:**
-```json
-{
-  "posts": [
-    {
-      "id": "string",
-      "content": "string",
-      "user_id": "string",
-      "username": "string",
-      "created_at": "string (ISO 8601 datetime)",
-      "updated_at": "string (ISO 8601 datetime)"
-    }
-  ],
-  "pagination": {
-    "total": "integer",
-    "page": "integer",
-    "limit": "integer",
-    "pages": "integer"
+  "status": "ready",
+  "dependencies": {
+    "database": "connected",
+    "redis": "connected"
   }
 }
 ```
 
-### POST /api/posts
+## Posts Endpoints
 
-Creates a new post.
+### GET /api/posts
 
-**Request:**
+Returns a list of posts, with optional pagination.
+
+**Query Parameters:**
+- `page`: Page number (default: 1)
+- `limit`: Number of posts per page (default: 10)
+
+**Response (200 OK):**
 ```json
 {
-  "content": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "string",
-  "content": "string",
-  "user_id": "string",
-  "username": "string",
-  "created_at": "string (ISO 8601 datetime)",
-  "updated_at": "string (ISO 8601 datetime)"
+  "posts": [
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "content": "This is a post about Tiger-Tail!",
+      "created_at": "2025-03-18T12:00:00Z",
+      "updated_at": "2025-03-18T12:00:00Z"
+    },
+    {
+      "id": "223e4567-e89b-12d3-a456-426614174001",
+      "content": "Another interesting post.",
+      "created_at": "2025-03-18T11:30:00Z",
+      "updated_at": "2025-03-18T11:30:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 42,
+    "page": 1,
+    "limit": 10,
+    "pages": 5
+  }
 }
 ```
 
 ### GET /api/posts/{id}
 
-Returns a specific post.
+Returns a specific post by ID.
 
-**Response:**
+**Path Parameters:**
+- `id`: Post ID (UUID)
+
+**Response (200 OK):**
 ```json
 {
-  "id": "string",
-  "content": "string",
-  "user_id": "string",
-  "username": "string",
-  "created_at": "string (ISO 8601 datetime)",
-  "updated_at": "string (ISO 8601 datetime)"
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "content": "This is a post about Tiger-Tail!",
+  "created_at": "2025-03-18T12:00:00Z",
+  "updated_at": "2025-03-18T12:00:00Z"
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "error": "not_found",
+  "message": "Post not found"
+}
+```
+
+### POST /api/posts
+
+Creates a new post. Requires authentication.
+
+**Request Headers:**
+- `Authorization`: Basic Auth header
+
+**Request Body:**
+```json
+{
+  "content": "This is a new post about Tiger-Tail!"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "content": "This is a new post about Tiger-Tail!",
+  "created_at": "2025-03-18T12:00:00Z",
+  "updated_at": "2025-03-18T12:00:00Z"
+}
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "error": "validation_error",
+  "message": "Content is required",
+  "details": {
+    "content": "required"
+  }
+}
+```
+
+**Response (401 Unauthorized):**
+```json
+{
+  "error": "unauthorized",
+  "message": "Authentication required"
 }
 ```
 
 ### PUT /api/posts/{id}
 
-Updates a specific post.
+Updates an existing post. Requires authentication.
 
-**Request:**
+**Path Parameters:**
+- `id`: Post ID (UUID)
+
+**Request Headers:**
+- `Authorization`: Basic Auth header
+
+**Request Body:**
 ```json
 {
-  "content": "string"
+  "content": "Updated post content"
 }
 ```
 
-**Response:**
+**Response (200 OK):**
 ```json
 {
-  "id": "string",
-  "content": "string",
-  "user_id": "string",
-  "username": "string",
-  "created_at": "string (ISO 8601 datetime)",
-  "updated_at": "string (ISO 8601 datetime)"
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "content": "Updated post content",
+  "created_at": "2025-03-18T12:00:00Z",
+  "updated_at": "2025-03-18T12:05:00Z"
 }
 ```
 
 ### DELETE /api/posts/{id}
 
-Deletes a specific post.
+Deletes a post. Requires authentication.
 
-**Response:**
-```json
-{
-  "success": true
-}
-```
+**Path Parameters:**
+- `id`: Post ID (UUID)
 
-## Users
+**Request Headers:**
+- `Authorization`: Basic Auth header
 
-### GET /api/users/{id}
+**Response (204 No Content)**
 
-Returns a specific user.
+## Error Handling
 
-**Response:**
-```json
-{
-  "id": "string",
-  "username": "string",
-  "bio": "string",
-  "created_at": "string (ISO 8601 datetime)"
-}
-```
-
-### PUT /api/users/{id}
-
-Updates a specific user.
-
-**Request:**
-```json
-{
-  "bio": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "string",
-  "username": "string",
-  "bio": "string",
-  "created_at": "string (ISO 8601 datetime)",
-  "updated_at": "string (ISO 8601 datetime)"
-}
-```
-
-## Error Responses
-
-All endpoints may return the following error responses:
-
-### 400 Bad Request
+All API endpoints follow a consistent error response format:
 
 ```json
 {
-  "error": "string",
-  "message": "string"
+  "error": "error_code",
+  "message": "Human-readable error message",
+  "details": {
+    // Optional field-specific error details
+  }
 }
 ```
 
-### 401 Unauthorized
+### Common Error Codes
+
+| Status Code | Error Code       | Description                        |
+|-------------|------------------|------------------------------------|
+| 400         | validation_error | Invalid request parameters or body |
+| 401         | unauthorized     | Authentication required            |
+| 403         | forbidden        | Insufficient permissions           |
+| 404         | not_found        | Resource not found                 |
+| 429         | rate_limited     | Too many requests                  |
+| 500         | internal_error   | Server error                       |
+
+## Rate Limiting
+
+To ensure system stability and prevent abuse, the API implements rate limiting:
+
+- 100 requests per minute per IP address
+- 1000 requests per hour per IP address
+
+When rate limited, the API returns a 429 Too Many Requests response with headers:
+
+- `X-RateLimit-Limit`: The rate limit ceiling
+- `X-RateLimit-Remaining`: The number of requests left for the time window
+- `X-RateLimit-Reset`: The remaining window before the rate limit resets (in seconds)
+
+## Pagination
+
+List endpoints support pagination with the following query parameters:
+
+- `page`: Page number (1-based)
+- `limit`: Number of items per page (default: 10, max: 100)
+
+The response includes a pagination object:
 
 ```json
-{
-  "error": "string",
-  "message": "string"
+"pagination": {
+  "total": 42,    // Total number of items
+  "page": 1,      // Current page
+  "limit": 10,    // Items per page
+  "pages": 5      // Total number of pages
 }
 ```
 
-### 403 Forbidden
+## Cross-References
 
-```json
-{
-  "error": "string",
-  "message": "string"
-}
-```
-
-### 404 Not Found
-
-```json
-{
-  "error": "string",
-  "message": "string"
-}
-```
-
-### 500 Internal Server Error
-
-```json
-{
-  "error": "string",
-  "message": "string"
-}
-```
+- For authentication details, see the [Getting Started](getting_started.md) guide
+- For architecture information, see the [Architecture](architecture.md) document
+- For common questions, see the [FAQ](faq.md)

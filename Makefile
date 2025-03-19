@@ -30,7 +30,7 @@ CHART_PATH=./charts/tigertail
 CHART_NAME=tiger-tail
 # Extract only the main chart version, not dependency versions
 CHART_VERSION=$(shell grep '^version:' $(CHART_PATH)/Chart.yaml | head -1 | awk '{print $$2}')
-CHART_PACKAGE=$(CHART_NAME)-$(CHART_VERSION).tgz
+CHART_PACKAGE=$(CHART_NAME)-chart-$(CHART_VERSION).tgz
 CHART_REGISTRY=oci://registry-1.docker.io/$(HUB_USERNAME)
 
 ################################################

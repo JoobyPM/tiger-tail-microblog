@@ -14,4 +14,5 @@
   <rect x="65" y="60" width="10" height="10" rx="5" fill="#000000" />
   <!-- Tiger tail -->
   <!-- <path d="M35,85 Q45,95 45,75 Q45,65 35,60 Q25,55 30,45 Q35,35 25,30" stroke="#000000" stroke-width="5" fill="none" /> -->
+<!--  <text x="100" y="75" font-size="95" font-weight="bold" font-family="courier">TigerTail</text>-->
 </svg>

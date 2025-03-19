@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
+	"github.com/go-redis/redis/v8"
 )
 
 // ErrCacheMiss is returned when a key is not found in the cache
@@ -26,71 +28,135 @@ type RedisClientInterface interface {
 
 // RedisClient represents a Redis client
 type RedisClient struct {
-	// In a real implementation, this would contain the Redis client
-	addr     string
-	password string
-	db       int
+	client *redis.Client
+	ctx    context.Context
+}
+
+// NewRedisStub creates a new Redis stub for testing
+func NewRedisStub() *RedisClient {
+	log.Println("Creating Redis stub")
+	return &RedisClient{
+		client: nil,
+		ctx:    context.Background(),
+	}
 }
 
 // NewRedisClient creates a new Redis client
-// This is a stub implementation that logs the connection attempt but doesn't actually connect
 func NewRedisClient(addr, password string, db int) (*RedisClient, error) {
-	log.Printf("Stub: Would connect to Redis at %s (DB: %d)", addr, db)
+	log.Printf("Connecting to Redis at %s (DB: %d)", addr, db)
 	
-	// In a real implementation, we would connect to Redis
-	// client := redis.NewClient(&redis.Options{
-	//     Addr:     addr,
-	//     Password: password,
-	//     DB:       db,
-	// })
+	// Create a new Redis client
+	client := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+		DB:       db,
+	})
 	
-	// For now, just return a stub
+	// Create a context for Redis operations
+	ctx := context.Background()
+	
+	// Ping Redis to verify the connection
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("failed to ping Redis: %w", err)
+	}
+	
 	return &RedisClient{
-		addr:     addr,
-		password: password,
-		db:       db,
+		client: client,
+		ctx:    ctx,
 	}, nil
 }
 
 // Get retrieves a value from Redis
 func (r *RedisClient) Get(key string) ([]byte, error) {
-	log.Printf("Stub: Would get key %s from Redis", key)
-	return nil, fmt.Errorf("not implemented")
+	if r.client == nil {
+		// Stub implementation always returns cache miss
+		return nil, ErrCacheMiss
+	}
+	
+	val, err := r.client.Get(r.ctx, key).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, ErrCacheMiss
+		}
+		return nil, fmt.Errorf("error getting key %s from Redis: %w", key, err)
+	}
+	return val, nil
 }
 
 // Set stores a value in Redis
 func (r *RedisClient) Set(key string, value []byte, expiration time.Duration) error {
-	log.Printf("Stub: Would set key %s in Redis with expiration %v", key, expiration)
+	if r.client == nil {
+		// Stub implementation does nothing
+		return nil
+	}
+	
+	err := r.client.Set(r.ctx, key, value, expiration).Err()
+	if err != nil {
+		return fmt.Errorf("error setting key %s in Redis: %w", key, err)
+	}
 	return nil
 }
 
 // Delete removes a key from Redis
 func (r *RedisClient) Delete(key string) error {
-	log.Printf("Stub: Would delete key %s from Redis", key)
+	if r.client == nil {
+		// Stub implementation does nothing
+		return nil
+	}
+	
+	err := r.client.Del(r.ctx, key).Err()
+	if err != nil {
+		return fmt.Errorf("error deleting key %s from Redis: %w", key, err)
+	}
 	return nil
 }
 
 // Exists checks if a key exists in Redis
 func (r *RedisClient) Exists(key string) (bool, error) {
-	log.Printf("Stub: Would check if key %s exists in Redis", key)
-	return false, nil
+	if r.client == nil {
+		// Stub implementation always returns false
+		return false, nil
+	}
+	
+	val, err := r.client.Exists(r.ctx, key).Result()
+	if err != nil {
+		return false, fmt.Errorf("error checking if key %s exists in Redis: %w", key, err)
+	}
+	return val > 0, nil
 }
 
 // Ping checks if the Redis connection is alive
 func (r *RedisClient) Ping() error {
-	log.Println("Stub: Would ping Redis")
-	return nil
+	if r.client == nil {
+		// Stub implementation always returns success
+		return nil
+	}
+	
+	return r.client.Ping(r.ctx).Err()
 }
 
 // Close closes the Redis connection
 func (r *RedisClient) Close() error {
-	log.Println("Stub: Would close Redis connection")
-	return nil
+	if r.client == nil {
+		// Stub implementation does nothing
+		return nil
+	}
+	
+	log.Println("Closing Redis connection")
+	return r.client.Close()
 }
 
 // FlushDB removes all keys from the current database
 func (r *RedisClient) FlushDB() error {
-	log.Println("Stub: Would flush Redis database")
+	if r.client == nil {
+		// Stub implementation does nothing
+		return nil
+	}
+	
+	err := r.client.FlushDB(r.ctx).Err()
+	if err != nil {
+		return fmt.Errorf("error flushing Redis database: %w", err)
+	}
 	return nil
 }
 
@@ -108,8 +174,6 @@ func NewPostCache(client RedisClientInterface) *PostCache {
 
 // GetPosts retrieves posts from the cache
 func (c *PostCache) GetPosts() ([]*domain.Post, error) {
-	log.Println("Stub: Would get posts from Redis")
-	
 	// Get posts from Redis
 	data, err := c.client.Get("posts")
 	if err != nil {
@@ -120,7 +184,7 @@ func (c *PostCache) GetPosts() ([]*domain.Post, error) {
 	var posts []*domain.Post
 	err = json.Unmarshal(data, &posts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshaling posts: %w", err)
 	}
 	
 	return posts, nil
@@ -128,12 +192,10 @@ func (c *PostCache) GetPosts() ([]*domain.Post, error) {
 
 // SetPosts stores posts in the cache
 func (c *PostCache) SetPosts(posts []*domain.Post) error {
-	log.Printf("Stub: Would set %d posts in Redis", len(posts))
-	
 	// Marshal posts
 	data, err := json.Marshal(posts)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling posts: %w", err)
 	}
 	
 	// Set posts in Redis
@@ -142,8 +204,6 @@ func (c *PostCache) SetPosts(posts []*domain.Post) error {
 
 // GetPostsWithUser retrieves posts with user information from the cache
 func (c *PostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
-	log.Println("Stub: Would get posts with user from Redis")
-	
 	// Get posts from Redis
 	data, err := c.client.Get("posts_with_user")
 	if err != nil {
@@ -154,7 +214,7 @@ func (c *PostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
 	var posts []*domain.PostWithUser
 	err = json.Unmarshal(data, &posts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshaling posts with user: %w", err)
 	}
 	
 	return posts, nil
@@ -162,12 +222,10 @@ func (c *PostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
 
 // SetPostsWithUser stores posts with user information in the cache
 func (c *PostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
-	log.Printf("Stub: Would set %d posts with user in Redis", len(posts))
-	
 	// Marshal posts
 	data, err := json.Marshal(posts)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling posts with user: %w", err)
 	}
 	
 	// Set posts in Redis
@@ -176,22 +234,22 @@ func (c *PostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
 
 // InvalidatePosts invalidates the posts cache
 func (c *PostCache) InvalidatePosts() error {
-	log.Println("Stub: Would invalidate posts cache")
-	
 	// Delete posts from Redis
 	err1 := c.client.Delete("posts")
 	err2 := c.client.Delete("posts_with_user")
 	
 	if err1 != nil {
-		return err1
+		return fmt.Errorf("error deleting posts cache: %w", err1)
 	}
-	return err2
+	if err2 != nil {
+		return fmt.Errorf("error deleting posts with user cache: %w", err2)
+	}
+	
+	return nil
 }
 
 // GetPost retrieves a post from the cache
 func (c *PostCache) GetPost(id string) (*domain.Post, error) {
-	log.Printf("Stub: Would get post %s from Redis", id)
-	
 	// Get post from Redis
 	key := fmt.Sprintf("post:%s", id)
 	data, err := c.client.Get(key)
@@ -203,7 +261,7 @@ func (c *PostCache) GetPost(id string) (*domain.Post, error) {
 	var post domain.Post
 	err = json.Unmarshal(data, &post)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshaling post: %w", err)
 	}
 	
 	return &post, nil
@@ -211,13 +269,11 @@ func (c *PostCache) GetPost(id string) (*domain.Post, error) {
 
 // SetPost stores a post in the cache
 func (c *PostCache) SetPost(post *domain.Post) error {
-	log.Printf("Stub: Would set post %s in Redis", post.ID)
-	
 	// Marshal post
 	key := fmt.Sprintf("post:%s", post.ID)
 	data, err := json.Marshal(post)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling post: %w", err)
 	}
 	
 	// Set post in Redis
@@ -226,9 +282,17 @@ func (c *PostCache) SetPost(post *domain.Post) error {
 
 // InvalidatePost invalidates a post in the cache
 func (c *PostCache) InvalidatePost(id string) error {
-	log.Printf("Stub: Would invalidate post %s in Redis", id)
-	
 	// Delete post from Redis
 	key := fmt.Sprintf("post:%s", id)
-	return c.client.Delete(key)
+	err := c.client.Delete(key)
+	if err != nil {
+		return fmt.Errorf("error deleting post cache: %w", err)
+	}
+	
+	return nil
+}
+
+// Ping checks if the cache connection is alive
+func (c *PostCache) Ping() error {
+	return c.client.Ping()
 }

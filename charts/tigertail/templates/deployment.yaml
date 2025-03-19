@@ -50,25 +50,31 @@ spec:
               value: {{ .Values.config.database.password | quote }}
             - name: DB_NAME
               value: {{ .Values.config.database.name | quote }}
-            - name: DB_SSL_MODE
+            - name: DB_SSLMODE
               value: {{ .Values.config.database.sslMode | quote }}
+            - name: USE_REAL_DB
+              value: {{ .Values.config.database.useReal | quote }}
             - name: SERVER_PORT
               value: {{ .Values.config.server.port | quote }}
             - name: SERVER_HOST
               value: {{ .Values.config.server.host | quote }}
             - name: SERVER_BASE_URL
               value: {{ .Values.config.server.baseURL | quote }}
+            - name: AUTH_USERNAME
+              value: {{ .Values.config.auth.username | quote }}
+            - name: AUTH_PASSWORD
+              value: {{ .Values.config.auth.password | quote }}
             {{- if .Values.config.cache.enabled }}
-            - name: CACHE_ENABLED
-              value: {{ .Values.config.cache.enabled | quote }}
-            - name: CACHE_HOST
+            - name: REDIS_HOST
               value: {{ .Values.config.cache.host | quote }}
-            - name: CACHE_PORT
+            - name: REDIS_PORT
               value: {{ .Values.config.cache.port | quote }}
-            - name: CACHE_PASSWORD
+            - name: REDIS_PASSWORD
               value: {{ .Values.config.cache.password | quote }}
-            - name: CACHE_DB
+            - name: REDIS_DB
               value: {{ .Values.config.cache.db | quote }}
+            - name: USE_REAL_REDIS
+              value: {{ .Values.config.cache.useReal | quote }}
             {{- end }}
           ports:
             - name: http

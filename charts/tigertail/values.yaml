@@ -98,13 +98,19 @@ config:
     password: "postgres"
     name: "tigertail"
     sslMode: "disable"
+    useReal: true
   
   cache:
-    enabled: false
+    enabled: true
     host: "redis"
     port: 6379
     password: ""
     db: 0
+    useReal: true
+  
+  auth:
+    username: "admin"
+    password: "password"
 
 # External services
 postgresql:

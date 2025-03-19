@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -265,8 +266,19 @@ type PostCache interface {
 	InvalidatePosts() error
 }
 
+// respondJSON responds with JSON
+func respondJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
+}
+
+// respondError responds with an error
+func respondError(w http.ResponseWriter, status int, message string) {
+	respondJSON(w, status, map[string]string{"error": message})
+}
+
 // authenticateRequest authenticates a request using Basic Auth
-// In a real application, this would use a proper authentication mechanism
 func authenticateRequest(r *http.Request) (string, error) {
 	// Get username and password from Basic Auth
 	username, password, ok := r.BasicAuth()
@@ -274,9 +286,19 @@ func authenticateRequest(r *http.Request) (string, error) {
 		return "", domain.ErrUserNotFound
 	}
 
+	// Get expected username and password from environment variables
+	expectedUsername := os.Getenv("AUTH_USERNAME")
+	if expectedUsername == "" {
+		expectedUsername = "admin" // Default if not set
+	}
+	
+	expectedPassword := os.Getenv("AUTH_PASSWORD")
+	if expectedPassword == "" {
+		expectedPassword = "password" // Default if not set
+	}
+
 	// Check if username and password are valid
-	// In a real application, this would check against a database
-	if username == "admin" && password == "password" {
+	if username == expectedUsername && password == expectedPassword {
 		return "user_1", nil
 	}
 

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestAPI(t *testing.T) {
+func TestBasicEndpoints(t *testing.T) {
 	// Get the API URL from environment variable or use default
 	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {

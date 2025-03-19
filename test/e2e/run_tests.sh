@@ -27,7 +27,7 @@ go mod vendor
 
 # Start the services
 echo "Starting services..."
-docker-compose -f docker-compose.test.yml up -d
+docker-compose -f docker-compose.test.yml up -d --build
 
 # Check container status
 echo "Checking container status..."
