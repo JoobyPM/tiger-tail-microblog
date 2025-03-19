@@ -89,6 +89,32 @@ The project includes Makefile targets for building and publishing Docker images:
 
 These commands will use the values from your `.env` file for Docker Hub username, repository name, and version tag.
 
+### Helm Chart Packaging and Publishing
+
+The project includes Makefile targets for packaging and publishing Helm charts to Docker Hub using the OCI format:
+
+1. **Update Helm dependencies**:
+   ```bash
+   make helm-deps
+   ```
+
+2. **Package Helm chart**:
+   ```bash
+   make helm-package
+   ```
+
+3. **Push Helm chart to Docker Hub OCI registry**:
+   ```bash
+   make helm-push
+   ```
+
+4. **Install Helm chart locally**:
+   ```bash
+   make helm-install
+   ```
+
+These commands will use the chart version from `charts/tigertail/Chart.yaml` and the Docker Hub username from your `.env` file.
+
 ## Contributing
 
 We welcome pull requests! Please open an issue first to discuss any feature or bug fix.

@@ -39,3 +39,7 @@ coverage.txt
 #Tmp files
 tmp/
 .copy
+
+
+# Local Helm charts
+charts/*.tgz

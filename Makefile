@@ -25,6 +25,14 @@ VERSION ?= latest
 # For multi-arch builds
 PLATFORMS=linux/amd64,linux/arm64
 
+# Helm chart info
+CHART_PATH=./charts/tigertail
+CHART_NAME=tiger-tail
+# Extract only the main chart version, not dependency versions
+CHART_VERSION=$(shell grep '^version:' $(CHART_PATH)/Chart.yaml | head -1 | awk '{print $$2}')
+CHART_PACKAGE=$(CHART_NAME)-$(CHART_VERSION).tgz
+CHART_REGISTRY=oci://registry-1.docker.io/$(HUB_USERNAME)
+
 ################################################
 # STEP 4: A special 'check-env' target that
 #         fails if any required variable is empty
@@ -96,3 +104,25 @@ docker-buildx: check-env
 		-f cmd/tigertail/Dockerfile \
 		-t $(HUB_USERNAME)/$(REPO_NAME):$(VERSION) \
 		--push .
+
+################################################
+# STEP 6: Helm chart packaging and publishing
+################################################
+
+# Package the Helm chart
+helm-package:
+	@echo "Packaging Helm chart $(CHART_NAME) version $(CHART_VERSION)..."
+	helm package $(CHART_PATH) -d ./charts
+
+# Push the Helm chart to Docker Hub OCI registry
+helm-push: check-env helm-package
+	@echo "Pushing Helm chart $(CHART_PACKAGE) to $(CHART_REGISTRY)..."
+	helm push ./charts/$(CHART_PACKAGE) $(CHART_REGISTRY)
+
+# Update Helm dependencies
+helm-deps:
+	helm dependency update $(CHART_PATH)
+
+# Install the Helm chart locally
+helm-install: check-env helm-package
+	helm install $(CHART_NAME) ./charts/$(CHART_PACKAGE)
