@@ -25,6 +25,9 @@ VERSION ?= latest
 # For multi-arch builds
 PLATFORMS=linux/amd64,linux/arm64
 
+# Coverage threshold (can be overridden: `make test-threshold COVERAGE_THRESHOLD=80`)
+COVERAGE_THRESHOLD ?= 70
+
 # Helm chart info
 CHART_PATH=./charts/tigertail
 CHART_NAME=tiger-tail
@@ -61,6 +64,14 @@ build:
 # Run the application
 run: build
 	./server.out
+test-coverage:
+	go test -coverprofile=coverage.out ./internal/... ./cmd/...
+	go tool cover -func=coverage.out
+
+test-threshold:
+	go test -coverprofile=coverage.out ./internal/... ./cmd/...
+	go tool cover -func=coverage.out | grep total | \
+	awk -v threshold=$(COVERAGE_THRESHOLD) '{sub("%","",$$3); coverage=$$3+0; if(coverage<threshold){printf("Coverage below threshold (%.1f%% < %.1f%%)\n", coverage, threshold); exit 1} else {printf("Coverage is %.1f%%, meets or exceeds threshold: %.1f%%\n", coverage, threshold);}}'
 
 # Run all tests
 test: test-unit test-e2e
