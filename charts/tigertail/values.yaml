@@ -25,16 +25,19 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  enabled: true
+  runAsUser: 65532    # Distroless "nonroot" UID
+  runAsGroup: 65532   # matching GID
+  fsGroup: 65532      # ensures group ownership of mounted volumes
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
 
 service:
   type: ClusterIP

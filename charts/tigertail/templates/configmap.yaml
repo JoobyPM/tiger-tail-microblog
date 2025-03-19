@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tigertail.fullname" . }}-config
+  labels:
+    {{- include "tigertail.labels" . | nindent 4 }}
+data:
+  server.json: |
+    {
+      "port": {{ .Values.config.server.port }},
+      "host": {{ .Values.config.server.host | quote }},
+      "baseURL": {{ .Values.config.server.baseURL | quote }}
+    }
+  database.json: |
+    {
+      "host": {{ .Values.config.database.host | quote }},
+      "port": {{ .Values.config.database.port }},
+      "user": {{ .Values.config.database.user | quote }},
+      "name": {{ .Values.config.database.name | quote }},
+      "sslMode": {{ .Values.config.database.sslMode | quote }}
+    }
+  {{- if .Values.config.cache.enabled }}
+  cache.json: |
+    {
+      "enabled": {{ .Values.config.cache.enabled }},
+      "host": {{ .Values.config.cache.host | quote }},
+      "port": {{ .Values.config.cache.port }},
+      "db": {{ .Values.config.cache.db }}
+    }
+  {{- end }}

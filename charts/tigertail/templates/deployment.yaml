@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tigertail.fullname" . }}
+  labels:
+    {{- include "tigertail.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "tigertail.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "tigertail.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tigertail.serviceAccountName" . }}
+      securityContext:
+        {{- if .Values.podSecurityContext.enabled }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        {{- else }}
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DB_HOST
+              value: {{ .Values.config.database.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.config.database.port | quote }}
+            - name: DB_USER
+              value: {{ .Values.config.database.user | quote }}
+            - name: DB_PASSWORD
+              value: {{ .Values.config.database.password | quote }}
+            - name: DB_NAME
+              value: {{ .Values.config.database.name | quote }}
+            - name: DB_SSL_MODE
+              value: {{ .Values.config.database.sslMode | quote }}
+            - name: SERVER_PORT
+              value: {{ .Values.config.server.port | quote }}
+            - name: SERVER_HOST
+              value: {{ .Values.config.server.host | quote }}
+            - name: SERVER_BASE_URL
+              value: {{ .Values.config.server.baseURL | quote }}
+            {{- if .Values.config.cache.enabled }}
+            - name: CACHE_ENABLED
+              value: {{ .Values.config.cache.enabled | quote }}
+            - name: CACHE_HOST
+              value: {{ .Values.config.cache.host | quote }}
+            - name: CACHE_PORT
+              value: {{ .Values.config.cache.port | quote }}
+            - name: CACHE_PASSWORD
+              value: {{ .Values.config.cache.password | quote }}
+            - name: CACHE_DB
+              value: {{ .Values.config.cache.db | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
