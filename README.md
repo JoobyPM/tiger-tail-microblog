@@ -57,6 +57,38 @@ make test
 
 The integration tests use Docker Compose to spin up the application with PostgreSQL and Redis, then run tests against the running services.
 
+### Docker Build and Deployment
+
+The project includes Makefile targets for building and publishing Docker images:
+
+1. **Configure Docker environment variables**:
+   ```bash
+   # Edit .env file to set Docker Hub username and version
+   # Required variables: HUB_USERNAME, REPO_NAME, VERSION
+   ```
+
+2. **Build Docker image**:
+   ```bash
+   make docker-build
+   ```
+
+3. **Push to Docker Hub**:
+   ```bash
+   make docker-push
+   ```
+
+4. **Run Docker container locally**:
+   ```bash
+   make docker-run
+   ```
+
+5. **Build and push multi-architecture image** (amd64 and arm64):
+   ```bash
+   make docker-buildx
+   ```
+
+These commands will use the values from your `.env` file for Docker Hub username, repository name, and version tag.
+
 ## Contributing
 
 We welcome pull requests! Please open an issue first to discuss any feature or bug fix.
