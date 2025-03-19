@@ -8,6 +8,7 @@ import (
 
 	"github.com/JoobyPM/tiger-tail-microblog/internal/cache"
 	"github.com/JoobyPM/tiger-tail-microblog/internal/db"
+	httputil "github.com/JoobyPM/tiger-tail-microblog/internal/http"
 )
 
 func TestGetEnv(t *testing.T) {
@@ -29,15 +30,33 @@ func TestGetEnv(t *testing.T) {
 
 func TestInitApp(t *testing.T) {
 	// Set environment variables for testing
-	os.Setenv("DB_DSN", "postgres://postgres:postgres@localhost:5432/tigertail_test?sslmode=disable")
-	os.Setenv("REDIS_ADDR", "localhost:6379")
+	os.Setenv("DB_HOST", "localhost")
+	os.Setenv("DB_PORT", "5432")
+	os.Setenv("DB_USER", "postgres")
+	os.Setenv("DB_PASSWORD", "postgres")
+	os.Setenv("DB_NAME", "tigertail_test")
+	os.Setenv("DB_SSLMODE", "disable")
+	os.Setenv("REDIS_HOST", "localhost")
+	os.Setenv("REDIS_PORT", "6379")
 	os.Setenv("REDIS_PASSWORD", "")
-	os.Setenv("PORT", "8080")
+	os.Setenv("SERVER_PORT", "8080")
+	// Use stubs instead of real connections
+	os.Setenv("USE_REAL_DB", "false")
+	os.Setenv("USE_REAL_REDIS", "false")
+	
 	defer func() {
-		os.Unsetenv("DB_DSN")
-		os.Unsetenv("REDIS_ADDR")
+		os.Unsetenv("DB_HOST")
+		os.Unsetenv("DB_PORT")
+		os.Unsetenv("DB_USER")
+		os.Unsetenv("DB_PASSWORD")
+		os.Unsetenv("DB_NAME")
+		os.Unsetenv("DB_SSLMODE")
+		os.Unsetenv("REDIS_HOST")
+		os.Unsetenv("REDIS_PORT")
 		os.Unsetenv("REDIS_PASSWORD")
-		os.Unsetenv("PORT")
+		os.Unsetenv("SERVER_PORT")
+		os.Unsetenv("USE_REAL_DB")
+		os.Unsetenv("USE_REAL_REDIS")
 	}()
 	
 	// Test initApp
@@ -81,23 +100,8 @@ func TestSetupRoutes(t *testing.T) {
 
 // setupRoutesWithMux is a helper function for testing that takes a mux
 func setupRoutesWithMux(mux *http.ServeMux, postRepo *db.PostRepository, postCache *cache.PostCache) {
-	// Root endpoint
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok", "message": "Tiger-Tail Microblog API"}`))
-	})
-	
-	// API endpoint
-	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Tiger-Tail Microblog API", "version": "0.1.0"}`))
-	})
+	// Setup basic routes
+	httputil.SetupBasicRoutes(mux)
 }
 
 func TestRunServer(t *testing.T) {

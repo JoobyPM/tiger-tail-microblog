@@ -35,7 +35,7 @@ services:
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${DB_NAME:-tigertail_test}
+      - POSTGRES_DB=${DB_NAME:-tigertail}
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -50,7 +50,7 @@ services:
     image: redis:7-alpine
     ports:
       - "${REDIS_PORT:-6379}:6379"
-    command: redis-server --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server
     volumes:
       - redis_test_data:/data
     restart: unless-stopped

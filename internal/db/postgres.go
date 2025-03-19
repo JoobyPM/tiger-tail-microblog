@@ -441,8 +441,3 @@ func (r *PostRepository) FetchAllPosts() ([]*domain.Post, error) {
 	
 	return posts, nil
 }
-
-// CreatePost creates a new post in the database
-func (r *PostRepository) CreatePost(post *domain.Post) error {
-	return r.Create(post) // Reuse the Create method
-}

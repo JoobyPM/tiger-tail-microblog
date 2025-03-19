@@ -70,8 +70,3 @@ func TestPostRepository_FetchAllPosts(t *testing.T) {
 	// Skip this test in CI environments since we don't have a real database
 	t.Skip("Skipping test that requires a real database")
 }
-
-func TestPostRepository_CreatePost(t *testing.T) {
-	// Skip this test in CI environments since we don't have a real database
-	t.Skip("Skipping test that requires a real database")
-}
