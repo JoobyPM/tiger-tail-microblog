@@ -2,20 +2,7 @@ package db
 
 import (
 	"testing"
-
-	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
-
-// MockPostgresDB is a mock implementation of the PostgreSQL database for testing
-type MockPostgresDB struct {
-	posts map[string]*domain.Post
-}
-
-func NewMockPostgresDB() *MockPostgresDB {
-	return &MockPostgresDB{
-		posts: make(map[string]*domain.Post),
-	}
-}
 
 func TestNewPostRepository(t *testing.T) {
 	mockDB := &PostgresDB{}
