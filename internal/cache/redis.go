@@ -43,7 +43,12 @@ func NewRedisStub() *RedisClient {
 
 // NewRedisClient creates a new Redis client
 func NewRedisClient(addr, password string, db int) (*RedisClient, error) {
-	log.Printf("Connecting to Redis at %s (DB: %d)", addr, db)
+	// Log connection details (without password)
+	if password != "" {
+		log.Printf("Connecting to Redis at %s (DB: %d) with password", addr, db)
+	} else {
+		log.Printf("Connecting to Redis at %s (DB: %d) without password", addr, db)
+	}
 	
 	// Create a new Redis client
 	client := redis.NewClient(&redis.Options{

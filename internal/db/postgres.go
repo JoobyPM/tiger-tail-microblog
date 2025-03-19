@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/JoobyPM/tiger-tail-microblog/internal/config"
 	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 )
 
@@ -24,7 +25,7 @@ func NewPostgresStub() *PostgresDB {
 
 // NewPostgresConnection creates a new PostgreSQL connection
 func NewPostgresConnection(dsn string) (*PostgresDB, error) {
-	log.Printf("Connecting to PostgreSQL with DSN: %s", dsn)
+	log.Printf("Connecting to PostgreSQL with DSN: %s", config.SanitizeConnectionString(dsn))
 	
 	// Connect to the database
 	db, err := sql.Open("postgres", dsn)

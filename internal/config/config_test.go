@@ -25,13 +25,13 @@ func TestDefaultConfig(t *testing.T) {
 	if config.Database.Host != "localhost" {
 		t.Errorf("Default database host = %s, want %s", config.Database.Host, "localhost")
 	}
-	if config.Database.Port != 5432 {
-		t.Errorf("Default database port = %d, want %d", config.Database.Port, 5432)
+	if config.Database.Port != "5432" {
+		t.Errorf("Default database port = %s, want %s", config.Database.Port, "5432")
 	}
-	if config.Database.User != "postgres" {
+	if string(config.Database.User) != "postgres" {
 		t.Errorf("Default database user = %s, want %s", config.Database.User, "postgres")
 	}
-	if config.Database.Password != "postgres" {
+	if string(config.Database.Password) != "postgres" {
 		t.Errorf("Default database password = %s, want %s", config.Database.Password, "postgres")
 	}
 	if config.Database.Name != "tigertail" {
@@ -42,20 +42,33 @@ func TestDefaultConfig(t *testing.T) {
 	}
 
 	// Verify default cache config
-	if config.Cache.Enabled != false {
-		t.Errorf("Default cache enabled = %t, want %t", config.Cache.Enabled, false)
-	}
 	if config.Cache.Host != "localhost" {
 		t.Errorf("Default cache host = %s, want %s", config.Cache.Host, "localhost")
 	}
-	if config.Cache.Port != 6379 {
-		t.Errorf("Default cache port = %d, want %d", config.Cache.Port, 6379)
+	if config.Cache.Port != "6379" {
+		t.Errorf("Default cache port = %s, want %s", config.Cache.Port, "6379")
 	}
-	if config.Cache.Password != "" {
+	if string(config.Cache.Password) != "" {
 		t.Errorf("Default cache password = %s, want %s", config.Cache.Password, "")
 	}
 	if config.Cache.DB != 0 {
 		t.Errorf("Default cache DB = %d, want %d", config.Cache.DB, 0)
+	}
+	
+	// Verify default auth config
+	if string(config.Auth.Username) != "admin" {
+		t.Errorf("Default auth username = %s, want %s", config.Auth.Username, "admin")
+	}
+	if string(config.Auth.Password) != "password" {
+		t.Errorf("Default auth password = %s, want %s", config.Auth.Password, "password")
+	}
+	
+	// Verify default use real services
+	if config.UseRealDB != false {
+		t.Errorf("Default use real DB = %t, want %t", config.UseRealDB, false)
+	}
+	if config.UseRealCache != false {
+		t.Errorf("Default use real cache = %t, want %t", config.UseRealCache, false)
 	}
 }
 
@@ -93,21 +106,26 @@ func TestLoadConfig(t *testing.T) {
 						Host:    "127.0.0.1",
 						BaseURL: "http://example.com",
 					},
-					Database: DatabaseConfig{
+					Database: DatabaseCredentials{
 						Host:     "db.example.com",
-						Port:     5433,
-						User:     "testuser",
-						Password: "testpass",
+						Port:     "5433",
+						User:     SensitiveString("testuser"),
+						Password: SensitiveString("testpass"),
 						Name:     "testdb",
 						SSLMode:  "require",
 					},
-					Cache: CacheConfig{
-						Enabled:  true,
+					Cache: RedisCredentials{
 						Host:     "cache.example.com",
-						Port:     6380,
-						Password: "cachepass",
+						Port:     "6380",
+						Password: SensitiveString("cachepass"),
 						DB:       1,
 					},
+					Auth: AuthCredentials{
+						Username: SensitiveString("testadmin"),
+						Password: SensitiveString("testadminpass"),
+					},
+					UseRealDB:    true,
+					UseRealCache: true,
 				}
 
 				data, _ := json.Marshal(testConfig)
@@ -129,13 +147,13 @@ func TestLoadConfig(t *testing.T) {
 				if config.Database.Host != "db.example.com" {
 					t.Errorf("Database host = %s, want %s", config.Database.Host, "db.example.com")
 				}
-				if config.Database.Port != 5433 {
-					t.Errorf("Database port = %d, want %d", config.Database.Port, 5433)
+				if config.Database.Port != "5433" {
+					t.Errorf("Database port = %s, want %s", config.Database.Port, "5433")
 				}
-				if config.Database.User != "testuser" {
+				if string(config.Database.User) != "testuser" {
 					t.Errorf("Database user = %s, want %s", config.Database.User, "testuser")
 				}
-				if config.Database.Password != "testpass" {
+				if string(config.Database.Password) != "testpass" {
 					t.Errorf("Database password = %s, want %s", config.Database.Password, "testpass")
 				}
 				if config.Database.Name != "testdb" {
@@ -144,20 +162,29 @@ func TestLoadConfig(t *testing.T) {
 				if config.Database.SSLMode != "require" {
 					t.Errorf("Database SSL mode = %s, want %s", config.Database.SSLMode, "require")
 				}
-				if config.Cache.Enabled != true {
-					t.Errorf("Cache enabled = %t, want %t", config.Cache.Enabled, true)
-				}
 				if config.Cache.Host != "cache.example.com" {
 					t.Errorf("Cache host = %s, want %s", config.Cache.Host, "cache.example.com")
 				}
-				if config.Cache.Port != 6380 {
-					t.Errorf("Cache port = %d, want %d", config.Cache.Port, 6380)
+				if config.Cache.Port != "6380" {
+					t.Errorf("Cache port = %s, want %s", config.Cache.Port, "6380")
 				}
-				if config.Cache.Password != "cachepass" {
+				if string(config.Cache.Password) != "cachepass" {
 					t.Errorf("Cache password = %s, want %s", config.Cache.Password, "cachepass")
 				}
 				if config.Cache.DB != 1 {
 					t.Errorf("Cache DB = %d, want %d", config.Cache.DB, 1)
+				}
+				if string(config.Auth.Username) != "testadmin" {
+					t.Errorf("Auth username = %s, want %s", config.Auth.Username, "testadmin")
+				}
+				if string(config.Auth.Password) != "testadminpass" {
+					t.Errorf("Auth password = %s, want %s", config.Auth.Password, "testadminpass")
+				}
+				if config.UseRealDB != true {
+					t.Errorf("Use real DB = %t, want %t", config.UseRealDB, true)
+				}
+				if config.UseRealCache != true {
+					t.Errorf("Use real cache = %t, want %t", config.UseRealCache, true)
 				}
 			},
 		},
@@ -219,9 +246,10 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	// Save original environment variables
 	origEnv := make(map[string]string)
 	envVars := []string{
-		"TT_SERVER_PORT", "TT_SERVER_HOST", "TT_SERVER_BASE_URL",
-		"TT_DB_HOST", "TT_DB_PORT", "TT_DB_USER", "TT_DB_PASSWORD", "TT_DB_NAME", "TT_DB_SSL_MODE",
-		"TT_CACHE_ENABLED", "TT_CACHE_HOST", "TT_CACHE_PORT", "TT_CACHE_PASSWORD", "TT_CACHE_DB",
+		"SERVER_PORT", "SERVER_HOST", "SERVER_BASE_URL",
+		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
+		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",
+		"AUTH_USERNAME", "AUTH_PASSWORD", "USE_REAL_DB", "USE_REAL_REDIS",
 	}
 	for _, env := range envVars {
 		origEnv[env] = os.Getenv(env)
@@ -244,20 +272,23 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	}
 
 	// Test with custom environment variables
-	os.Setenv("TT_SERVER_PORT", "9090")
-	os.Setenv("TT_SERVER_HOST", "127.0.0.1")
-	os.Setenv("TT_SERVER_BASE_URL", "http://example.com")
-	os.Setenv("TT_DB_HOST", "db.example.com")
-	os.Setenv("TT_DB_PORT", "5433")
-	os.Setenv("TT_DB_USER", "testuser")
-	os.Setenv("TT_DB_PASSWORD", "testpass")
-	os.Setenv("TT_DB_NAME", "testdb")
-	os.Setenv("TT_DB_SSL_MODE", "require")
-	os.Setenv("TT_CACHE_ENABLED", "true")
-	os.Setenv("TT_CACHE_HOST", "cache.example.com")
-	os.Setenv("TT_CACHE_PORT", "6380")
-	os.Setenv("TT_CACHE_PASSWORD", "cachepass")
-	os.Setenv("TT_CACHE_DB", "1")
+	os.Setenv("SERVER_PORT", "9090")
+	os.Setenv("SERVER_HOST", "127.0.0.1")
+	os.Setenv("SERVER_BASE_URL", "http://example.com")
+	os.Setenv("DB_HOST", "db.example.com")
+	os.Setenv("DB_PORT", "5433")
+	os.Setenv("DB_USER", "testuser")
+	os.Setenv("DB_PASSWORD", "testpass")
+	os.Setenv("DB_NAME", "testdb")
+	os.Setenv("DB_SSLMODE", "require")
+	os.Setenv("REDIS_HOST", "cache.example.com")
+	os.Setenv("REDIS_PORT", "6380")
+	os.Setenv("REDIS_PASSWORD", "cachepass")
+	os.Setenv("REDIS_DB", "1")
+	os.Setenv("AUTH_USERNAME", "testadmin")
+	os.Setenv("AUTH_PASSWORD", "testadminpass")
+	os.Setenv("USE_REAL_DB", "true")
+	os.Setenv("USE_REAL_REDIS", "true")
 
 	// Test
 	config := LoadConfigFromEnv()
@@ -275,13 +306,13 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	if config.Database.Host != "db.example.com" {
 		t.Errorf("Database host = %s, want %s", config.Database.Host, "db.example.com")
 	}
-	if config.Database.Port != 5433 {
-		t.Errorf("Database port = %d, want %d", config.Database.Port, 5433)
+	if config.Database.Port != "5433" {
+		t.Errorf("Database port = %s, want %s", config.Database.Port, "5433")
 	}
-	if config.Database.User != "testuser" {
+	if string(config.Database.User) != "testuser" {
 		t.Errorf("Database user = %s, want %s", config.Database.User, "testuser")
 	}
-	if config.Database.Password != "testpass" {
+	if string(config.Database.Password) != "testpass" {
 		t.Errorf("Database password = %s, want %s", config.Database.Password, "testpass")
 	}
 	if config.Database.Name != "testdb" {
@@ -290,27 +321,34 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	if config.Database.SSLMode != "require" {
 		t.Errorf("Database SSL mode = %s, want %s", config.Database.SSLMode, "require")
 	}
-	if config.Cache.Enabled != true {
-		t.Errorf("Cache enabled = %t, want %t", config.Cache.Enabled, true)
-	}
 	if config.Cache.Host != "cache.example.com" {
 		t.Errorf("Cache host = %s, want %s", config.Cache.Host, "cache.example.com")
 	}
-	if config.Cache.Port != 6380 {
-		t.Errorf("Cache port = %d, want %d", config.Cache.Port, 6380)
+	if config.Cache.Port != "6380" {
+		t.Errorf("Cache port = %s, want %s", config.Cache.Port, "6380")
 	}
-	if config.Cache.Password != "cachepass" {
+	if string(config.Cache.Password) != "cachepass" {
 		t.Errorf("Cache password = %s, want %s", config.Cache.Password, "cachepass")
 	}
 	if config.Cache.DB != 1 {
 		t.Errorf("Cache DB = %d, want %d", config.Cache.DB, 1)
 	}
+	if string(config.Auth.Username) != "testadmin" {
+		t.Errorf("Auth username = %s, want %s", config.Auth.Username, "testadmin")
+	}
+	if string(config.Auth.Password) != "testadminpass" {
+		t.Errorf("Auth password = %s, want %s", config.Auth.Password, "testadminpass")
+	}
+	if config.UseRealDB != true {
+		t.Errorf("Use real DB = %t, want %t", config.UseRealDB, true)
+	}
+	if config.UseRealCache != true {
+		t.Errorf("Use real cache = %t, want %t", config.UseRealCache, true)
+	}
 
 	// Test with invalid port values
-	os.Setenv("TT_SERVER_PORT", "invalid")
-	os.Setenv("TT_DB_PORT", "invalid")
-	os.Setenv("TT_CACHE_PORT", "invalid")
-	os.Setenv("TT_CACHE_DB", "invalid")
+	os.Setenv("SERVER_PORT", "invalid")
+	os.Setenv("REDIS_DB", "invalid")
 
 	// Test
 	config = LoadConfigFromEnv()
@@ -318,12 +356,6 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	// Assert - should use default values for invalid ports
 	if config.Server.Port != 8080 {
 		t.Errorf("Server port = %d, want %d", config.Server.Port, 8080)
-	}
-	if config.Database.Port != 5432 {
-		t.Errorf("Database port = %d, want %d", config.Database.Port, 5432)
-	}
-	if config.Cache.Port != 6379 {
-		t.Errorf("Cache port = %d, want %d", config.Cache.Port, 6379)
 	}
 	if config.Cache.DB != 0 {
 		t.Errorf("Cache DB = %d, want %d", config.Cache.DB, 0)

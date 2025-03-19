@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/JoobyPM/tiger-tail-microblog/internal/cache"
+	"github.com/JoobyPM/tiger-tail-microblog/internal/config"
 	"github.com/JoobyPM/tiger-tail-microblog/internal/db"
 	"github.com/JoobyPM/tiger-tail-microblog/internal/domain"
 	_ "github.com/lib/pq" // PostgreSQL driver
@@ -19,67 +20,53 @@ import (
 
 // initApp initializes the application components
 func initApp() (string, error) {
-	// Read environment variables
-	dbHost := getEnv("DB_HOST", "localhost")
-	dbPort := getEnv("DB_PORT", "5432")
-	dbUser := getEnv("DB_USER", "postgres")
-	dbPassword := getEnv("DB_PASSWORD", "postgres")
-	dbName := getEnv("DB_NAME", "tigertail")
-	dbSSLMode := getEnv("DB_SSLMODE", "disable")
+	// Load configuration from environment variables
+	cfg := config.LoadConfigFromEnv()
 	
-	// Construct DB DSN from individual environment variables
-	dbDSN := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", 
-		dbUser, dbPassword, dbHost, dbPort, dbName, dbSSLMode)
+	// Get database credentials
+	dbCreds := &cfg.Database
 	
-	// Read Redis environment variables
-	redisHost := getEnv("REDIS_HOST", "localhost")
-	redisPort := getEnv("REDIS_PORT", "6379")
-	redisPassword := getEnv("REDIS_PASSWORD", "")
-	redisDBStr := getEnv("REDIS_DB", "0")
-	redisDB := 0 // Default Redis DB
-	fmt.Sscanf(redisDBStr, "%d", &redisDB)
-	
-	// Construct Redis address from individual environment variables
-	redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+	// Get Redis credentials
+	redisCreds := &cfg.Cache
 	
 	// Get server port
-	port := getEnv("SERVER_PORT", getEnv("PORT", "8080"))
-
-	// Log the connection details
-	log.Printf("Connecting to PostgreSQL with DSN: %s", dbDSN)
-	log.Printf("Connecting to Redis at %s (DB: %d)", redisAddr, redisDB)
+	port := fmt.Sprintf("%d", cfg.Server.Port)
 	
-	// Check if we should use real database
-	useRealDB := getEnv("USE_REAL_DB", "false") == "true"
+	// Log the connection details (sanitized)
+	log.Printf("Connecting to PostgreSQL with DSN: %s", dbCreds.GetSanitizedDSN())
+	log.Printf("Connecting to Redis at %s:%s (DB: %d)", redisCreds.Host, redisCreds.Port, redisCreds.DB)
+	
 	var postgres *db.PostgresDB
 	var err error
 	
-	if useRealDB {
+	if cfg.UseRealDB {
 		// Initialize database connection
-		postgres, err = db.NewPostgresConnection(dbDSN)
+		postgres, err = db.NewPostgresConnection(dbCreds.GetDSN())
 		if err != nil {
 			log.Printf("Error: Failed to connect to database: %v", err)
 			return "", fmt.Errorf("failed to connect to database: %w", err)
 		}
 	} else {
-		log.Printf("Stub: Would connect to PostgreSQL with DSN: %s", dbDSN)
+		log.Printf("Stub: Would connect to PostgreSQL with DSN: %s", dbCreds.GetSanitizedDSN())
 		// Create a stub implementation
 		postgres = db.NewPostgresStub()
 	}
 
-	// Check if we should use real Redis
-	useRealRedis := getEnv("USE_REAL_REDIS", "false") == "true"
 	var redisClient *cache.RedisClient
 	
-	if useRealRedis {
+	if cfg.UseRealCache {
 		// Initialize Redis connection
-		redisClient, err = cache.NewRedisClient(redisAddr, redisPassword, redisDB)
+		redisClient, err = cache.NewRedisClient(
+			redisCreds.GetAddr(), 
+			redisCreds.Password.Value(), 
+			redisCreds.DB,
+		)
 		if err != nil {
 			log.Printf("Error: Failed to connect to Redis: %v", err)
 			return "", fmt.Errorf("failed to connect to Redis: %w", err)
 		}
 	} else {
-		log.Printf("Stub: Would connect to Redis at %s (DB: %d)", redisAddr, redisDB)
+		log.Printf("Stub: Would connect to Redis at %s:%s (DB: %d)", redisCreds.Host, redisCreds.Port, redisCreds.DB)
 		// Create a stub implementation
 		redisClient = cache.NewRedisStub()
 	}
@@ -91,13 +78,13 @@ func initApp() (string, error) {
 	postCache := cache.NewPostCache(redisClient)
 	
 	// Setup routes with real implementations
-	setupRoutes(postRepo, postCache)
+	setupRoutes(postRepo, postCache, &cfg.Auth)
 
 	return port, nil
 }
 
 // setupRoutes sets up the HTTP routes
-func setupRoutes(postRepo *db.PostRepository, postCache *cache.PostCache) {
+func setupRoutes(postRepo *db.PostRepository, postCache *cache.PostCache, authCreds *config.AuthCredentials) {
 	// Root endpoint
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -206,16 +193,9 @@ func setupRoutes(postRepo *db.PostRepository, postCache *cache.PostCache) {
 				return
 			}
 
-			// Get expected username and password from environment variables
-			expectedUsername := os.Getenv("AUTH_USERNAME")
-			if expectedUsername == "" {
-				expectedUsername = "admin" // Default if not set
-			}
-			
-			expectedPassword := os.Getenv("AUTH_PASSWORD")
-			if expectedPassword == "" {
-				expectedPassword = "password" // Default if not set
-			}
+			// Get expected username and password from credentials
+			expectedUsername := authCreds.Username.Value()
+			expectedPassword := authCreds.Password.Value()
 
 			// Check if username and password are valid
 			if username != expectedUsername || password != expectedPassword {

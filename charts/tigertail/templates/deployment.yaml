@@ -45,9 +45,15 @@ spec:
             - name: DB_PORT
               value: {{ .Values.config.database.port | quote }}
             - name: DB_USER
-              value: {{ .Values.config.database.user | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tigertail.fullname" . }}-credentials
+                  key: db-user
             - name: DB_PASSWORD
-              value: {{ .Values.config.database.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tigertail.fullname" . }}-credentials
+                  key: db-password
             - name: DB_NAME
               value: {{ .Values.config.database.name | quote }}
             - name: DB_SSLMODE
@@ -61,16 +67,25 @@ spec:
             - name: SERVER_BASE_URL
               value: {{ .Values.config.server.baseURL | quote }}
             - name: AUTH_USERNAME
-              value: {{ .Values.config.auth.username | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tigertail.fullname" . }}-credentials
+                  key: auth-username
             - name: AUTH_PASSWORD
-              value: {{ .Values.config.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tigertail.fullname" . }}-credentials
+                  key: auth-password
             {{- if .Values.config.cache.enabled }}
             - name: REDIS_HOST
               value: {{ .Values.config.cache.host | quote }}
             - name: REDIS_PORT
               value: {{ .Values.config.cache.port | quote }}
             - name: REDIS_PASSWORD
-              value: {{ .Values.config.cache.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tigertail.fullname" . }}-credentials
+                  key: redis-password
             - name: REDIS_DB
               value: {{ .Values.config.cache.db | quote }}
             - name: USE_REAL_REDIS

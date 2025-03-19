@@ -9,9 +9,12 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server   ServerConfig   `json:"server"`
-	Database DatabaseConfig `json:"database"`
-	Cache    CacheConfig    `json:"cache"`
+	Server   ServerConfig        `json:"server"`
+	Database DatabaseCredentials `json:"database"`
+	Cache    RedisCredentials    `json:"cache"`
+	Auth     AuthCredentials     `json:"auth"`
+	UseRealDB    bool            `json:"use_real_db"`
+	UseRealCache bool            `json:"use_real_cache"`
 }
 
 // ServerConfig represents the server configuration
@@ -19,25 +22,6 @@ type ServerConfig struct {
 	Port    int    `json:"port"`
 	Host    string `json:"host"`
 	BaseURL string `json:"base_url"`
-}
-
-// DatabaseConfig represents the database configuration
-type DatabaseConfig struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
-	SSLMode  string `json:"ssl_mode"`
-}
-
-// CacheConfig represents the cache configuration
-type CacheConfig struct {
-	Enabled  bool   `json:"enabled"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Password string `json:"password"`
-	DB       int    `json:"db"`
 }
 
 // DefaultConfig returns the default configuration
@@ -48,21 +32,26 @@ func DefaultConfig() *Config {
 			Host:    "0.0.0.0",
 			BaseURL: "http://localhost:8080",
 		},
-		Database: DatabaseConfig{
+		Database: DatabaseCredentials{
 			Host:     "localhost",
-			Port:     5432,
-			User:     "postgres",
-			Password: "postgres",
+			Port:     "5432",
+			User:     SensitiveString("postgres"),
+			Password: SensitiveString("postgres"),
 			Name:     "tigertail",
 			SSLMode:  "disable",
 		},
-		Cache: CacheConfig{
-			Enabled:  false,
+		Cache: RedisCredentials{
 			Host:     "localhost",
-			Port:     6379,
-			Password: "",
+			Port:     "6379",
+			Password: SensitiveString(""),
 			DB:       0,
 		},
+		Auth: AuthCredentials{
+			Username: SensitiveString("admin"),
+			Password: SensitiveString("password"),
+		},
+		UseRealDB:    false,
+		UseRealCache: false,
 	}
 }
 
@@ -96,51 +85,64 @@ func LoadConfigFromEnv() *Config {
 	config := DefaultConfig()
 
 	// Server config
-	if port := os.Getenv("TT_SERVER_PORT"); port != "" {
+	if port := os.Getenv("SERVER_PORT"); port != "" {
 		fmt.Sscanf(port, "%d", &config.Server.Port)
 	}
-	if host := os.Getenv("TT_SERVER_HOST"); host != "" {
+	if host := os.Getenv("SERVER_HOST"); host != "" {
 		config.Server.Host = host
 	}
-	if baseURL := os.Getenv("TT_SERVER_BASE_URL"); baseURL != "" {
+	if baseURL := os.Getenv("SERVER_BASE_URL"); baseURL != "" {
 		config.Server.BaseURL = baseURL
 	}
 
 	// Database config
-	if host := os.Getenv("TT_DB_HOST"); host != "" {
+	if host := os.Getenv("DB_HOST"); host != "" {
 		config.Database.Host = host
 	}
-	if port := os.Getenv("TT_DB_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &config.Database.Port)
+	if port := os.Getenv("DB_PORT"); port != "" {
+		config.Database.Port = port
 	}
-	if user := os.Getenv("TT_DB_USER"); user != "" {
-		config.Database.User = user
+	if user := os.Getenv("DB_USER"); user != "" {
+		config.Database.User = SensitiveString(user)
 	}
-	if password := os.Getenv("TT_DB_PASSWORD"); password != "" {
-		config.Database.Password = password
+	if password := os.Getenv("DB_PASSWORD"); password != "" {
+		config.Database.Password = SensitiveString(password)
 	}
-	if name := os.Getenv("TT_DB_NAME"); name != "" {
+	if name := os.Getenv("DB_NAME"); name != "" {
 		config.Database.Name = name
 	}
-	if sslMode := os.Getenv("TT_DB_SSL_MODE"); sslMode != "" {
+	if sslMode := os.Getenv("DB_SSLMODE"); sslMode != "" {
 		config.Database.SSLMode = sslMode
 	}
 
 	// Cache config
-	if enabled := os.Getenv("TT_CACHE_ENABLED"); enabled == "true" {
-		config.Cache.Enabled = true
-	}
-	if host := os.Getenv("TT_CACHE_HOST"); host != "" {
+	if host := os.Getenv("REDIS_HOST"); host != "" {
 		config.Cache.Host = host
 	}
-	if port := os.Getenv("TT_CACHE_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &config.Cache.Port)
+	if port := os.Getenv("REDIS_PORT"); port != "" {
+		config.Cache.Port = port
 	}
-	if password := os.Getenv("TT_CACHE_PASSWORD"); password != "" {
-		config.Cache.Password = password
+	if password := os.Getenv("REDIS_PASSWORD"); password != "" {
+		config.Cache.Password = SensitiveString(password)
 	}
-	if db := os.Getenv("TT_CACHE_DB"); db != "" {
+	if db := os.Getenv("REDIS_DB"); db != "" {
 		fmt.Sscanf(db, "%d", &config.Cache.DB)
+	}
+	
+	// Auth config
+	if username := os.Getenv("AUTH_USERNAME"); username != "" {
+		config.Auth.Username = SensitiveString(username)
+	}
+	if password := os.Getenv("AUTH_PASSWORD"); password != "" {
+		config.Auth.Password = SensitiveString(password)
+	}
+	
+	// Use real services
+	if useRealDB := os.Getenv("USE_REAL_DB"); useRealDB == "true" {
+		config.UseRealDB = true
+	}
+	if useRealCache := os.Getenv("USE_REAL_REDIS"); useRealCache == "true" {
+		config.UseRealCache = true
 	}
 
 	return config
