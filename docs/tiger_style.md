@@ -281,7 +281,7 @@ simple package layouts, and small, composable modules.
 
 ## The Last Stage
 
-Finally, have fun and keep iterating. We call it “TigerBeetle” because we aim for code that is both incredibly fast and
+Finally, have fun and keep iterating. Originally, it's called it “TigerBeetle” because creators aim for code that is both incredibly fast and
 impressively small—run swiftly and lightly, with minimal overhead, in a wide world full of possibilities.
 
 > “You don’t really suppose, do you, that all your adventures and escapes were managed by mere luck, just for your sole

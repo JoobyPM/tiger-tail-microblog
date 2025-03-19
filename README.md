@@ -1,8 +1,7 @@
-
-
+![logo](docs/images/icon.svg)
 # TigerTail Microblog
 
-TigerTail is a minimal microblog service, built in Go, featuring:
+TigerTail is a minimal microblog service, built in Go following our [Tiger Style](docs/tiger_style.md) principles, featuring:
 - **PostgreSQL** persistence
 - **Redis** caching
 - **Basic Auth** for admin post creation
@@ -35,7 +34,12 @@ TigerTail is a minimal microblog service, built in Go, featuring:
    - **GET** `/livez` - liveness probe.
    - **GET** `/readyz` - readiness probe.
 
-See the [docs](./docs) folder for more details on architecture, usage, and FAQs.
+See the documentation for more details:
+- [Architecture](docs/architecture.md) - System design and data flow
+- [Getting Started](docs/getting_started.md) - Setup, running, and deployment
+- [API Endpoints](docs/api_endpoints.md) - API documentation
+- [FAQ](docs/faq.md) - Common questions and troubleshooting
+- [Tiger Style](docs/tiger_style.md) - Our coding principles
 
 
 ## Development
