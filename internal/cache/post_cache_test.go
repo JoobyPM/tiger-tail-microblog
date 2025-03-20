@@ -112,7 +112,7 @@ func TestPostCache_GetPostsWithUser(t *testing.T) {
 	cache := NewPostCache(client)
 	
 	// Test cache miss
-	_, err := cache.GetPostsWithUser()
+	_, _, err := cache.GetPostsWithUser()
 	if err == nil {
 		t.Error("Expected error for cache miss, got nil")
 	}
@@ -147,13 +147,17 @@ func TestPostCache_GetPostsWithUser(t *testing.T) {
 	}
 	
 	// Test cache hit
-	cachedPosts, err := cache.GetPostsWithUser()
+	cachedPosts, total, err := cache.GetPostsWithUser()
 	if err != nil {
 		t.Fatalf("Error getting posts from cache: %v", err)
 	}
 	
 	if len(cachedPosts) != len(posts) {
 		t.Errorf("len(cachedPosts) = %d, want %d", len(cachedPosts), len(posts))
+	}
+	
+	if total != len(posts) {
+		t.Errorf("total = %d, want %d", total, len(posts))
 	}
 	
 	for i, post := range cachedPosts {
@@ -278,7 +282,7 @@ func TestPostCache_InvalidatePosts(t *testing.T) {
 		t.Error("Expected error for cache miss after invalidation, got nil")
 	}
 	
-	_, err = cache.GetPostsWithUser()
+	_, _, err = cache.GetPostsWithUser()
 	if err == nil {
 		t.Error("Expected error for cache miss after invalidation, got nil")
 	}

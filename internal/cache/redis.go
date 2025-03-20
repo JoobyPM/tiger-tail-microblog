@@ -165,6 +165,12 @@ func (r *RedisClient) FlushDB() error {
 	return nil
 }
 
+// PostsWithTotal represents posts with their total count
+type PostsWithTotal struct {
+	Posts []*domain.PostWithUser `json:"posts"`
+	Total int                    `json:"total"`
+}
+
 // PostCache implements caching for posts
 type PostCache struct {
 	client RedisClientInterface
@@ -208,33 +214,50 @@ func (c *PostCache) SetPosts(posts []*domain.Post) error {
 }
 
 // GetPostsWithUser retrieves posts with user information from the cache
-func (c *PostCache) GetPostsWithUser() ([]*domain.PostWithUser, error) {
+func (c *PostCache) GetPostsWithUser() ([]*domain.PostWithUser, int, error) {
 	// Get posts from Redis
 	data, err := c.client.Get("posts_with_user")
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	
-	// Unmarshal posts
-	var posts []*domain.PostWithUser
-	err = json.Unmarshal(data, &posts)
+	// Unmarshal posts with total
+	var postsWithTotal PostsWithTotal
+	err = json.Unmarshal(data, &postsWithTotal)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling posts with user: %w", err)
+		// Try to unmarshal as old format for backward compatibility
+		var posts []*domain.PostWithUser
+		err2 := json.Unmarshal(data, &posts)
+		if err2 != nil {
+			return nil, 0, fmt.Errorf("error unmarshaling posts with user: %w", err)
+		}
+		return posts, len(posts), nil
 	}
 	
-	return posts, nil
+	return postsWithTotal.Posts, postsWithTotal.Total, nil
 }
 
-// SetPostsWithUser stores posts with user information in the cache
-func (c *PostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
-	// Marshal posts
-	data, err := json.Marshal(posts)
+// SetPostsWithUserAndTotal stores posts with user information and total count in the cache
+func (c *PostCache) SetPostsWithUserAndTotal(posts []*domain.PostWithUser, total int) error {
+	// Create posts with total
+	postsWithTotal := PostsWithTotal{
+		Posts: posts,
+		Total: total,
+	}
+	
+	// Marshal posts with total
+	data, err := json.Marshal(postsWithTotal)
 	if err != nil {
-		return fmt.Errorf("error marshaling posts with user: %w", err)
+		return fmt.Errorf("error marshaling posts with user and total: %w", err)
 	}
 	
 	// Set posts in Redis
 	return c.client.Set("posts_with_user", data, 5*time.Minute)
+}
+
+// SetPostsWithUser stores posts with user information in the cache (for backward compatibility)
+func (c *PostCache) SetPostsWithUser(posts []*domain.PostWithUser) error {
+	return c.SetPostsWithUserAndTotal(posts, len(posts))
 }
 
 // InvalidatePosts invalidates the posts cache

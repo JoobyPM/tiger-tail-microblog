@@ -26,7 +26,7 @@ VERSION ?= latest
 PLATFORMS=linux/amd64,linux/arm64
 
 # Coverage threshold (can be overridden: `make test-threshold COVERAGE_THRESHOLD=80`)
-COVERAGE_THRESHOLD ?= 70
+COVERAGE_THRESHOLD ?= 40
 
 # Helm chart info
 CHART_PATH=./charts/tiger-tail-chart

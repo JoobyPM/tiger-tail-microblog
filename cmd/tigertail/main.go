@@ -136,14 +136,14 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 	offset := (page - 1) * limit
 
 	// Try to get posts from cache
-	posts, err := postCache.GetPostsWithUser()
+	posts, total, err := postCache.GetPostsWithUser()
 	if err == nil {
 		// Cache hit
 		httputil.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
 			"posts":  posts,
 			"page":   page,
 			"limit":  limit,
-			"total":  len(posts),
+			"total":  total,
 			"source": "cache",
 		})
 		return
@@ -159,13 +159,13 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 	}
 
 	// Get total count
-	total, err := postRepo.Count()
+	total, err = postRepo.Count()
 	if err != nil {
 		total = len(posts)
 	}
 
-	// Set posts in cache
-	go postCache.SetPostsWithUser(posts)
+	// Set posts in cache with total count
+	go postCache.SetPostsWithUserAndTotal(posts, total)
 
 	// Return posts
 	httputil.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
@@ -224,7 +224,14 @@ func handleCreatePost(w http.ResponseWriter, r *http.Request, postRepo *db.PostR
 	// This ensures the new post is immediately available in the cache
 	posts, err := postRepo.List(0, DefaultPageSize)
 	if err == nil {
-		go postCache.SetPostsWithUser(posts)
+		// Get the updated total count
+		total, countErr := postRepo.Count()
+		if countErr == nil {
+			go postCache.SetPostsWithUserAndTotal(posts, total)
+		} else {
+			// If we can't get the total count, use the default behavior
+			go postCache.SetPostsWithUser(posts)
+		}
 	} else {
 		// If we can't get the updated list, just invalidate the cache
 		go postCache.InvalidatePosts()
