@@ -337,30 +337,38 @@ func (r *PostRepository) ListByUser(userID string, offset, limit int) ([]*domain
 // List retrieves a list of posts with pagination
 func (r *PostRepository) List(offset, limit int) ([]*domain.PostWithUser, error) {
 	if r.db.db == nil {
-		// For stub implementation, return mock posts
-		now := time.Now()
-		return []*domain.PostWithUser{
-			{
-				Post: domain.Post{
-					ID:        "post_1",
-					UserID:    "user_1",
-					Content:   "Test post content 1",
-					CreatedAt: now.Add(-time.Hour),
-					UpdatedAt: now.Add(-time.Hour),
-				},
-				Username: "testuser",
-			},
-			{
-				Post: domain.Post{
-					ID:        "post_2",
-					UserID:    "user_1",
-					Content:   "Test post content 2",
-					CreatedAt: now,
-					UpdatedAt: now,
-				},
-				Username: "testuser",
-			},
-		}, nil
+		// For stub implementation, generate mock posts based on offset and limit
+		mockPosts := make([]*domain.PostWithUser, 0, limit)
+		totalPosts := 16 // Match the total count reported in the API response
+		
+		// Calculate the actual number of posts to return based on offset and limit
+		startIdx := offset
+		endIdx := offset + limit
+		if endIdx > totalPosts {
+			endIdx = totalPosts
+		}
+		
+		// Only generate posts if we're within bounds
+		if startIdx < totalPosts {
+			now := time.Now()
+			
+			// Generate the requested number of mock posts
+			for i := startIdx; i < endIdx; i++ {
+				postID := fmt.Sprintf("post_%d", i+1)
+				mockPosts = append(mockPosts, &domain.PostWithUser{
+					Post: domain.Post{
+						ID:        postID,
+						UserID:    "user_1",
+						Content:   "Hello, world!",
+						CreatedAt: now.Add(-time.Duration(i) * time.Minute),
+						UpdatedAt: now.Add(-time.Duration(i) * time.Minute),
+					},
+					Username: "admin",
+				})
+			}
+		}
+		
+		return mockPosts, nil
 	}
 	
 	// First, try to get posts with user information
@@ -459,8 +467,8 @@ func (r *PostRepository) CountByUser(userID string) (int, error) {
 // Count returns the total number of posts
 func (r *PostRepository) Count() (int, error) {
 	if r.db.db == nil {
-		// For stub implementation, return a mock count
-		return 2, nil
+		// For stub implementation, return a mock count that matches our total posts
+		return 16, nil
 	}
 	
 	query := "SELECT COUNT(*) FROM posts"
@@ -480,24 +488,24 @@ func (r *PostRepository) Count() (int, error) {
 // FetchAllPosts retrieves all posts from the database
 func (r *PostRepository) FetchAllPosts() ([]*domain.Post, error) {
 	if r.db.db == nil {
-		// For stub implementation, return mock posts
+		// For stub implementation, return all mock posts
+		totalPosts := 16
+		mockPosts := make([]*domain.Post, 0, totalPosts)
 		now := time.Now()
-		return []*domain.Post{
-			{
-				ID:        "post_1",
+		
+		// Generate all mock posts
+		for i := 0; i < totalPosts; i++ {
+			postID := fmt.Sprintf("post_%d", i+1)
+			mockPosts = append(mockPosts, &domain.Post{
+				ID:        postID,
 				UserID:    "user_1",
-				Content:   "Test post content 1",
-				CreatedAt: now.Add(-time.Hour),
-				UpdatedAt: now.Add(-time.Hour),
-			},
-			{
-				ID:        "post_2",
-				UserID:    "user_1",
-				Content:   "Test post content 2",
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-		}, nil
+				Content:   "Hello, world!",
+				CreatedAt: now.Add(-time.Duration(i) * time.Minute),
+				UpdatedAt: now.Add(-time.Duration(i) * time.Minute),
+			})
+		}
+		
+		return mockPosts, nil
 	}
 	
 	query := "SELECT id, user_id, content, created_at, updated_at FROM posts ORDER BY created_at DESC"

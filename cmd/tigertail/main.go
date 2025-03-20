@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -135,22 +136,36 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 	page, limit := parsePaginationParams(r)
 	offset := (page - 1) * limit
 
+	// Parse fields parameter
+	fields := parseFieldsParam(r)
+
 	// Try to get posts from cache
-	posts, total, err := postCache.GetPostsWithUser()
+	allPosts, total, err := postCache.GetPostsWithUser()
 	if err == nil {
-		// Cache hit
-		httputil.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
-			"posts":  posts,
-			"page":   page,
-			"limit":  limit,
-			"total":  total,
-			"source": "cache",
-		})
+		// Cache hit - apply pagination to cached posts
+		var paginatedPosts []*domain.PostWithUser
+		
+		// Calculate end index for slicing
+		endIndex := offset + limit
+		if endIndex > len(allPosts) {
+			endIndex = len(allPosts)
+		}
+		
+		// Apply pagination if offset is within bounds
+		if offset < len(allPosts) {
+			paginatedPosts = allPosts[offset:endIndex]
+		} else {
+			paginatedPosts = []*domain.PostWithUser{}
+		}
+		
+		// Apply field filtering
+		response := createPostsResponse(paginatedPosts, page, limit, total, "cache", fields)
+		httputil.WriteJSONResponse(w, http.StatusOK, response)
 		return
 	}
 
 	// Cache miss, get posts from database
-	posts, err = postRepo.List(offset, limit)
+	posts, err := postRepo.List(offset, limit)
 	if err != nil {
 		httputil.WriteJSONResponse(w, http.StatusInternalServerError, map[string]string{
 			"error": "Failed to get posts",
@@ -167,14 +182,70 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 	// Set posts in cache with total count
 	go postCache.SetPostsWithUserAndTotal(posts, total)
 
-	// Return posts
-	httputil.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
-		"posts":  posts,
+	// Apply field filtering and return posts
+	response := createPostsResponse(posts, page, limit, total, "database", fields)
+	httputil.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+// parseFieldsParam parses the fields parameter from a request
+func parseFieldsParam(r *http.Request) []string {
+	fieldsParam := r.URL.Query().Get("fields")
+	if fieldsParam == "" {
+		return nil
+	}
+	
+	// Split by comma and trim spaces
+	fields := strings.Split(fieldsParam, ",")
+	for i, field := range fields {
+		fields[i] = strings.TrimSpace(field)
+	}
+	
+	return fields
+}
+
+// createPostsResponse creates a response with filtered fields if specified
+func createPostsResponse(posts []*domain.PostWithUser, page, limit, total int, source string, fields []string) map[string]interface{} {
+	response := map[string]interface{}{
 		"page":   page,
 		"limit":  limit,
 		"total":  total,
-		"source": "database",
-	})
+		"source": source,
+	}
+	
+	// If no fields specified, return all fields
+	if len(fields) == 0 {
+		response["posts"] = posts
+		return response
+	}
+	
+	// Filter fields for each post
+	filteredPosts := make([]map[string]interface{}, len(posts))
+	for i, post := range posts {
+		filteredPost := make(map[string]interface{})
+		
+		// Check each field and include if requested
+		for _, field := range fields {
+			switch field {
+			case "id":
+				filteredPost["id"] = post.ID
+			case "user_id":
+				filteredPost["user_id"] = post.UserID
+			case "content":
+				filteredPost["content"] = post.Content
+			case "created_at":
+				filteredPost["created_at"] = post.CreatedAt
+			case "updated_at":
+				filteredPost["updated_at"] = post.UpdatedAt
+			case "username":
+				filteredPost["username"] = post.Username
+			}
+		}
+		
+		filteredPosts[i] = filteredPost
+	}
+	
+	response["posts"] = filteredPosts
+	return response
 }
 
 // handleCreatePost handles POST requests to the posts endpoint
