@@ -24,7 +24,7 @@ import (
 // Constants for pagination limits
 const (
 	DefaultPageSize = 10
-	MaxPageSize     = 100
+	MaxPageSize     = 10_000
 )
 
 // initApp initializes the application components
@@ -193,6 +193,13 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 		// Cache hit - apply pagination to cached posts
 		var paginatedPosts []*domain.PostWithUser
 
+		// Check if we need to fetch from database instead of using cache
+		// If the requested limit is greater than what we have in cache and there are more posts available
+		if limit > len(allPosts) && total > len(allPosts) {
+			// We need more posts than what's in cache, so get from database
+			goto fetchFromDatabase
+		}
+
 		// Calculate end index for slicing
 		endIndex := offset + limit
 		if endIndex > len(allPosts) {
@@ -212,6 +219,7 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 		return
 	}
 
+fetchFromDatabase:
 	// Cache miss, get posts from database
 	posts, err := postRepo.List(offset, limit)
 	if err != nil {
@@ -406,8 +414,13 @@ func parsePaginationParams(r *http.Request) (page, limit int) {
 
 	// Parse limit parameter
 	if limitStr := query.Get("limit"); limitStr != "" {
-		if limitInt, err := strconv.Atoi(limitStr); err == nil && limitInt > 0 && limitInt <= MaxPageSize {
-			limit = limitInt
+		if limitInt, err := strconv.Atoi(limitStr); err == nil && limitInt > 0 {
+			// Apply the MaxPageSize limit only if the requested limit exceeds it
+			if limitInt <= MaxPageSize {
+				limit = limitInt
+			} else {
+				limit = MaxPageSize
+			}
 		}
 	}
 

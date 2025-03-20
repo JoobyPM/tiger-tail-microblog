@@ -149,9 +149,9 @@ func TestParsePaginationParams(t *testing.T) {
 		},
 		{
 			name:          "Limit Exceeds Maximum",
-			queryParams:   "page=2&limit=200",
+			queryParams:   "page=2&limit=10001",
 			expectedPage:  2,
-			expectedLimit: 10, // MaxPageSize is 10 in the main.go file
+			expectedLimit: MaxPageSize, // MaxPageSize is 10_000 in the main.go file
 		},
 	}
 
