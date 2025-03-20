@@ -1,0 +1,134 @@
+# -----------------------------------------------------------------------------
+# GLOBAL SETTINGS & DEFAULTS
+# -----------------------------------------------------------------------------
+
+replicaCount: 1
+
+image:
+  repository: joobypm/tiger-tail
+  pullPolicy: IfNotPresent
+  # If left empty, it defaults to .Chart.AppVersion
+  tag: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# -----------------------------------------------------------------------------
+# CREATE NAMESPACE
+# -----------------------------------------------------------------------------
+# NOTE: If `createNamespace` is true, the chart will try to create the namespace
+#       from `templates/namespace.yaml`. If that namespace already exists, 
+#       you'll get an error: "namespaces <xyz> already exists".
+#       Typically it's safer to set createNamespace: false (and let 
+#       `helm install your-release . -n existingNamespace --create-namespace`).
+createNamespace: false  # <-- CHANGED from true to false
+
+# -----------------------------------------------------------------------------
+# POD CONFIG & SECURITY
+# -----------------------------------------------------------------------------
+podAnnotations: {}
+
+podSecurityContext:
+  enabled: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+securityContext:
+  capabilities:
+    drop: [ "ALL" ]
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+
+# -----------------------------------------------------------------------------
+# SERVICE
+# -----------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 8080
+
+# -----------------------------------------------------------------------------
+# INGRESS
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: tiger-tail-chart.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+# -----------------------------------------------------------------------------
+# RESOURCES
+# -----------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# -----------------------------------------------------------------------------
+# AUTOSCALING/HPA
+# -----------------------------------------------------------------------------
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# -----------------------------------------------------------------------------
+# ENVIRONMENT VARIABLES
+# -----------------------------------------------------------------------------
+env:
+  useRealDb: "true"
+  useRealRedis: "true"
+  serverPort: "8080"
+  serverHost: "0.0.0.0"
+  logLevel: "info"
+
+# -----------------------------------------------------------------------------
+# SECRETS
+# -----------------------------------------------------------------------------
+secrets:
+  dbUser: "postgres"
+  dbPassword: "postgres"
+  dbName: "tigertail"
+  authUsername: "admin"
+  authPassword: "password"
+  redisPassword: "redispass"
+
+# -----------------------------------------------------------------------------
+# POSTGRESQL SUBCHART
+# -----------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  auth:
+    enablePostgresUser: true
+    postgresPassword: postgres
+    username: postgres
+    password: postgres
+    database: tigertail
+  primary:
+    service:
+      port: 5432
+
+# -----------------------------------------------------------------------------
+# REDIS SUBCHART
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  auth:
+    password: "redispass"
+  architecture: standalone
+  master:
+    service:
+      port: 6379

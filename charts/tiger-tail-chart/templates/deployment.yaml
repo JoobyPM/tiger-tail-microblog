@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tiger-tail-chart.fullname" . }}
+  labels:
+    {{- include "tiger-tail-chart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tiger-tail-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tiger-tail-chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "tiger-tail-chart.serviceAccountName" . }}
+
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+      {{- end }}
+
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+
+          env:
+            # Basic env for DB and Redis usage:
+            - name: USE_REAL_DB
+              value: {{ .Values.env.useRealDb | quote }}
+            - name: USE_REAL_REDIS
+              value: {{ .Values.env.useRealRedis | quote }}
+            - name: SERVER_PORT
+              value: {{ .Values.env.serverPort | quote }}
+            - name: SERVER_HOST
+              value: {{ .Values.env.serverHost | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.env.logLevel | quote }}
+
+            # DB host references subchart if enabled; fallback to localhost if disabled:
+            - name: DB_HOST
+              value: "{{ if .Values.postgresql.enabled }}{{ include "tiger-tail-chart.fullname" . }}-postgresql{{ else }}localhost{{ end }}"
+            - name: DB_PORT
+              value: "5432"
+
+            # Pull DB credentials from our K8s Secret:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tiger-tail-chart.fullname" . }}-secrets
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tiger-tail-chart.fullname" . }}-secrets
+                  key: db-password
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tiger-tail-chart.fullname" . }}-secrets
+                  key: db-name
+
+            # Redis host references subchart if enabled; fallback to localhost if disabled:
+            - name: REDIS_HOST
+              value: "{{ if .Values.redis.enabled }}{{ include "tiger-tail-chart.fullname" . }}-redis-master{{ else }}localhost{{ end }}"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tiger-tail-chart.fullname" . }}-secrets
+                  key: redis-password
+
+            # Basic Auth credentials:
+            - name: AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tiger-tail-chart.fullname" . }}-secrets
+                  key: auth-username
+            - name: AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tiger-tail-chart.fullname" . }}-secrets
+                  key: auth-password
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

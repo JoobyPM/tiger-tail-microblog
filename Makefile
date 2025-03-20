@@ -29,7 +29,7 @@ PLATFORMS=linux/amd64,linux/arm64
 COVERAGE_THRESHOLD ?= 70
 
 # Helm chart info
-CHART_PATH=./charts/tigertail
+CHART_PATH=./charts/tiger-tail-chart
 CHART_NAME=tiger-tail
 # Extract only the main chart version, not dependency versions
 CHART_VERSION=$(shell grep '^version:' $(CHART_PATH)/Chart.yaml | head -1 | awk '{print $$2}')

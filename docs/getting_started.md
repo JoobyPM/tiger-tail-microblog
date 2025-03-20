@@ -164,7 +164,7 @@ make helm-push
 To deploy from the OCI registry:
 
 ```bash
-helm install tigertail oci://registry-1.docker.io/yourusername/tiger-tail --version 0.1.0
+helm install tiger-tail-chart oci://registry-1.docker.io/joobypm --version 0.1.0
 ```
 
 ## Next Steps

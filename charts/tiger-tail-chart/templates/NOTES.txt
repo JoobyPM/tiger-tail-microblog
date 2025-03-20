@@ -1,0 +1,54 @@
+1. Accessing the Tiger-Tail Application
+{{- if .Values.ingress.enabled }}
+By default, Ingress is enabled. Check if you have an Ingress controller:
+- Host(s):
+  {{- range $host := .Values.ingress.hosts }}
+    {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+    {{- end }}
+  {{- end }}
+
+If you do NOT have an Ingress controller, set ingress.enabled=false or port-forward the service:
+  kubectl port-forward svc/{{ include "tiger-tail-chart.fullname" . }} 8080:{{ .Values.service.port }}
+
+{{- else if contains "NodePort" .Values.service.type }}
+  NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "tiger-tail-chart.fullname" . }})
+  NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Visit: http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: Wait for the LoadBalancer IP to be assigned. Then:
+  SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "tiger-tail-chart.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "Visit: http://$SERVICE_IP:{{ .Values.service.port }}"
+{{- else }}
+  # ClusterIP
+  POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "tiger-tail-chart.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  echo "Port-forwarding to local 8080 -> container port"
+  kubectl port-forward $POD_NAME 8080:{{ .Values.service.port }}
+  echo "Now you can visit http://localhost:8080"
+{{- end }}
+
+2. Database Info:
+{{- if .Values.postgresql.enabled }}
+   Using built-in PostgreSQL subchart:
+   Host: {{ include "tiger-tail-chart.fullname" . }}-postgresql
+   Port: {{ .Values.postgresql.primary.service.port }}
+   User: {{ .Values.postgresql.auth.username }}
+   DB:   {{ .Values.postgresql.auth.database }}
+
+To connect externally, you can port-forward:
+  kubectl port-forward svc/{{ include "tiger-tail-chart.fullname" . }}-postgresql 5432:5432
+{{- else }}
+   PostgreSQL subchart is disabled. You must supply an external DB.
+{{- end }}
+
+3. Redis Info:
+{{- if .Values.redis.enabled }}
+   Using built-in Redis subchart:
+   Host: {{ include "tiger-tail-chart.fullname" . }}-redis-master
+   Port: {{ .Values.redis.master.service.port }}
+
+   Connect externally via:
+   kubectl port-forward svc/{{ include "tiger-tail-chart.fullname" . }}-redis-master 6379:6379
+{{- else }}
+   Redis subchart is disabled. If env.useRealRedis="true", set REDIS_HOST to external host.
+{{- end }}

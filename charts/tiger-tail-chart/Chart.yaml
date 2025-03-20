@@ -1,10 +1,11 @@
 apiVersion: v2
 name: tiger-tail-chart
-description: A Helm chart for Tiger-Tail Microblog
+description: "Tiger-Tail Microblog: minimal Helm chart using environment variables"
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 
+# If you want to use Bitnami subcharts for PostgreSQL/Redis
 dependencies:
   - name: postgresql
     version: "~12.5.0"

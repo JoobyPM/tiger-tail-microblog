@@ -1,0 +1,14 @@
+{{- /*
+This file creates the namespace if .Values.createNamespace is true
+and .Release.Namespace is not empty. If that namespace already exists,
+Helm will fail with "namespaces <name> already exists."
+*/ -}}
+
+{{- if and .Values.createNamespace .Release.Namespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    {{- include "tiger-tail-chart.labels" . | nindent 4 }}
+{{- end }}

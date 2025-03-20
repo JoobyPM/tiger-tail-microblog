@@ -15,7 +15,7 @@ A minimal microblog service built in Go with PostgreSQL and Redis support.
 
 ```bash
 # Pull the image
-docker pull yourusername/tigertail:latest
+docker pull joobypm/tiger-tail:latest
 
 # Run with Docker Compose
 docker-compose up --build

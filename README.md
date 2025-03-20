@@ -7,7 +7,7 @@ TigerTail is a minimal microblog service, built in Go following our [Tiger Style
 - **Basic Auth** for admin post creation
 - **/livez** and **/readyz** for Kubernetes health checks
 - **Docker Compose** for local dev
-- **Helm** chart for production deployments (in `charts/tigertail`)
+- **Helm** chart for production deployments (in `charts/tiger-tail-chart`)
 
 ## Quick Start
 
@@ -117,7 +117,7 @@ The project includes Makefile targets for packaging and publishing Helm charts t
    make helm-install
    ```
 
-These commands will use the chart version from `charts/tigertail/Chart.yaml` and the Docker Hub username from your `.env` file.
+These commands will use the chart version from `charts/tiger-tail-chart/Chart.yaml` and the Docker Hub username from your `.env` file.
 
 ## Contributing
 
