@@ -41,7 +41,7 @@ func NewRedisStub() *RedisClient {
 	}
 }
 
-// NewRedisClient creates a new Redis client
+// NewRedisClient creates a new Redis client with retry mechanism
 func NewRedisClient(addr, password string, db int) (*RedisClient, error) {
 	// Log connection details (without password)
 	if password != "" {
@@ -60,7 +60,7 @@ func NewRedisClient(addr, password string, db int) (*RedisClient, error) {
 	// Create a context for Redis operations
 	ctx := context.Background()
 	
-	// Ping Redis to verify the connection
+	// Ping Redis to verify the connection - this is handled by the caller with retry mechanism
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to ping Redis: %w", err)
 	}

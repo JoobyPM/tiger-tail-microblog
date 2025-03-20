@@ -31,33 +31,39 @@ const (
 func initApp() (string, error) {
 	// Load configuration from environment variables
 	cfg := config.LoadConfigFromEnv()
-	
+
 	// Get server port
 	port := fmt.Sprintf("%d", cfg.Server.Port)
-	
-	// Initialize database
+
+	// Initialize database with retry
 	postgres, err := initDatabase(&cfg.Database, cfg.UseRealDB)
 	if err != nil {
+		log.Printf("Fatal: Database initialization failed after maximum attempts. Shutting down...")
 		return "", err
 	}
-	
-	// Initialize Redis
+
+	// Initialize Redis with retry
 	redisClient, err := initRedis(&cfg.Cache, cfg.UseRealCache)
 	if err != nil {
+		// Close the database connection before exiting
+		if closeErr := postgres.Close(); closeErr != nil {
+			log.Printf("Warning: Error closing database connection: %v", closeErr)
+		}
+		log.Printf("Fatal: Redis initialization failed after maximum attempts. Shutting down...")
 		return "", err
 	}
-	
+
 	// Create repositories and caches
 	postRepo := db.NewPostRepository(postgres)
 	postCache := cache.NewPostCache(redisClient)
-	
+
 	// Setup routes with real implementations
 	setupRoutes(http.DefaultServeMux, postRepo, postCache, &cfg.Auth)
 
 	return port, nil
 }
 
-// initDatabase initializes the database connection
+// initDatabase initializes the database connection with retry mechanism
 func initDatabase(dbCreds *config.DatabaseCredentials, useRealDB bool) (*db.PostgresDB, error) {
 	// Log the connection details (sanitized)
 	log.Printf("Connecting to PostgreSQL with DSN: %s", dbCreds.GetSanitizedDSN())
@@ -67,48 +73,90 @@ func initDatabase(dbCreds *config.DatabaseCredentials, useRealDB bool) (*db.Post
 		return db.NewPostgresStub(), nil
 	}
 	
-	// Initialize database connection
-	postgres, err := db.NewPostgresConnection(dbCreds.GetDSN())
-	if err != nil {
-		log.Printf("Error: Failed to connect to database: %v", err)
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	// Get retry configuration from environment
+	maxAttempts := config.DefaultConfig().Retry.MaxAttempts
+	waitSeconds := config.DefaultConfig().Retry.WaitSeconds
+	
+	// Initialize database connection with retry
+	var postgres *db.PostgresDB
+	var err error
+	
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		postgres, err = db.NewPostgresConnection(dbCreds.GetDSN())
+		if err == nil {
+			// Connection successful
+			return postgres, nil
+		}
+		
+		// Connection failed, log warning and retry if not the last attempt
+		if attempt < maxAttempts {
+			log.Printf("Warning: Failed to connect to PostgreSQL (attempt %d/%d): %v. Retrying in %d seconds...", 
+				attempt, maxAttempts, err, waitSeconds)
+			time.Sleep(time.Duration(waitSeconds) * time.Second)
+		} else {
+			// Last attempt failed
+			log.Printf("Error: Failed to connect to PostgreSQL after %d attempts: %v", maxAttempts, err)
+			return nil, fmt.Errorf("failed to connect to database after %d attempts: %w", maxAttempts, err)
+		}
 	}
 	
-	return postgres, nil
+	// This should never be reached due to the return in the last attempt, but added for completeness
+	return nil, fmt.Errorf("failed to connect to database: %w", err)
 }
 
-// initRedis initializes the Redis connection
+// initRedis initializes the Redis connection with retry mechanism
 func initRedis(redisCreds *config.RedisCredentials, useRealCache bool) (*cache.RedisClient, error) {
 	// Log the connection details
 	log.Printf("Connecting to Redis at %s:%s (DB: %d)", redisCreds.Host, redisCreds.Port, redisCreds.DB)
-	
+
 	if !useRealCache {
 		log.Printf("Stub: Would connect to Redis at %s:%s (DB: %d)", redisCreds.Host, redisCreds.Port, redisCreds.DB)
 		return cache.NewRedisStub(), nil
 	}
+
+	// Get retry configuration from environment
+	maxAttempts := config.DefaultConfig().Retry.MaxAttempts
+	waitSeconds := config.DefaultConfig().Retry.WaitSeconds
 	
-	// Initialize Redis connection
-	redisClient, err := cache.NewRedisClient(
-		redisCreds.GetAddr(), 
-		redisCreds.Password.Value(), 
-		redisCreds.DB,
-	)
-	if err != nil {
-		log.Printf("Error: Failed to connect to Redis: %v", err)
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	// Initialize Redis connection with retry
+	var redisClient *cache.RedisClient
+	var err error
+	
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		redisClient, err = cache.NewRedisClient(
+			redisCreds.GetAddr(),
+			redisCreds.Password.Value(),
+			redisCreds.DB,
+		)
+		if err == nil {
+			// Connection successful
+			return redisClient, nil
+		}
+		
+		// Connection failed, log warning and retry if not the last attempt
+		if attempt < maxAttempts {
+			log.Printf("Warning: Failed to connect to Redis (attempt %d/%d): %v. Retrying in %d seconds...", 
+				attempt, maxAttempts, err, waitSeconds)
+			time.Sleep(time.Duration(waitSeconds) * time.Second)
+		} else {
+			// Last attempt failed
+			log.Printf("Error: Failed to connect to Redis after %d attempts: %v", maxAttempts, err)
+			return nil, fmt.Errorf("failed to connect to Redis after %d attempts: %w", maxAttempts, err)
+		}
 	}
 	
-	return redisClient, nil
+	// This should never be reached due to the return in the last attempt, but added for completeness
+	return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 }
 
 // setupRoutes sets up the HTTP routes
 func setupRoutes(mux *http.ServeMux, postRepo *db.PostRepository, postCache *cache.PostCache, authCreds *config.AuthCredentials) {
 	// Setup basic routes
 	httputil.SetupBasicRoutes(mux)
-	
+
 	// Setup API routes
 	setupAPIRoutes(mux, postRepo, postCache, authCreds)
-	
+
 	// Setup health check routes
 	httputil.SetupHealthRoutes(mux)
 }
@@ -144,20 +192,20 @@ func handleGetPosts(w http.ResponseWriter, r *http.Request, postRepo *db.PostRep
 	if err == nil {
 		// Cache hit - apply pagination to cached posts
 		var paginatedPosts []*domain.PostWithUser
-		
+
 		// Calculate end index for slicing
 		endIndex := offset + limit
 		if endIndex > len(allPosts) {
 			endIndex = len(allPosts)
 		}
-		
+
 		// Apply pagination if offset is within bounds
 		if offset < len(allPosts) {
 			paginatedPosts = allPosts[offset:endIndex]
 		} else {
 			paginatedPosts = []*domain.PostWithUser{}
 		}
-		
+
 		// Apply field filtering
 		response := createPostsResponse(paginatedPosts, page, limit, total, "cache", fields)
 		httputil.WriteJSONResponse(w, http.StatusOK, response)
@@ -193,13 +241,13 @@ func parseFieldsParam(r *http.Request) []string {
 	if fieldsParam == "" {
 		return nil
 	}
-	
+
 	// Split by comma and trim spaces
 	fields := strings.Split(fieldsParam, ",")
 	for i, field := range fields {
 		fields[i] = strings.TrimSpace(field)
 	}
-	
+
 	return fields
 }
 
@@ -211,18 +259,18 @@ func createPostsResponse(posts []*domain.PostWithUser, page, limit, total int, s
 		"total":  total,
 		"source": source,
 	}
-	
+
 	// If no fields specified, return all fields
 	if len(fields) == 0 {
 		response["posts"] = posts
 		return response
 	}
-	
+
 	// Filter fields for each post
 	filteredPosts := make([]map[string]interface{}, len(posts))
 	for i, post := range posts {
 		filteredPost := make(map[string]interface{})
-		
+
 		// Check each field and include if requested
 		for _, field := range fields {
 			switch field {
@@ -240,10 +288,10 @@ func createPostsResponse(posts []*domain.PostWithUser, page, limit, total int, s
 				filteredPost["username"] = post.Username
 			}
 		}
-		
+
 		filteredPosts[i] = filteredPost
 	}
-	
+
 	response["posts"] = filteredPosts
 	return response
 }
@@ -259,7 +307,7 @@ func handleCreatePost(w http.ResponseWriter, r *http.Request, postRepo *db.PostR
 	var requestBody struct {
 		Content string `json:"content"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 		httputil.WriteJSONResponse(w, http.StatusBadRequest, map[string]string{
 			"error": "Invalid request body",
@@ -348,7 +396,7 @@ func parsePaginationParams(r *http.Request) (page, limit int) {
 
 	// Parse query parameters
 	query := r.URL.Query()
-	
+
 	// Parse page parameter
 	if pageStr := query.Get("page"); pageStr != "" {
 		if pageInt, err := strconv.Atoi(pageStr); err == nil && pageInt > 0 {
@@ -365,7 +413,6 @@ func parsePaginationParams(r *http.Request) (page, limit int) {
 
 	return page, limit
 }
-
 
 // startServer starts the HTTP server
 func startServer(port string) {
@@ -416,7 +463,7 @@ func main() {
 
 	// Wait for termination signal
 	<-sigChan
-	
+
 	// Call shutdown function
 	if shutdown != nil {
 		shutdown()

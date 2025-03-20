@@ -15,6 +15,13 @@ type Config struct {
 	Auth     AuthCredentials     `json:"auth"`
 	UseRealDB    bool            `json:"use_real_db"`
 	UseRealCache bool            `json:"use_real_cache"`
+	Retry    RetryConfig         `json:"retry"`
+}
+
+// RetryConfig represents the retry configuration for database connections
+type RetryConfig struct {
+	MaxAttempts int `json:"max_attempts"`
+	WaitSeconds int `json:"wait_seconds"`
 }
 
 // ServerConfig represents the server configuration
@@ -52,6 +59,10 @@ func DefaultConfig() *Config {
 		},
 		UseRealDB:    false,
 		UseRealCache: false,
+		Retry: RetryConfig{
+			MaxAttempts: 5,
+			WaitSeconds: 5,
+		},
 	}
 }
 
@@ -143,6 +154,14 @@ func LoadConfigFromEnv() *Config {
 	}
 	if useRealCache := os.Getenv("USE_REAL_REDIS"); useRealCache == "true" {
 		config.UseRealCache = true
+	}
+	
+	// Retry configuration
+	if maxAttempts := os.Getenv("DB_RETRY_MAX_ATTEMPTS"); maxAttempts != "" {
+		fmt.Sscanf(maxAttempts, "%d", &config.Retry.MaxAttempts)
+	}
+	if waitSeconds := os.Getenv("DB_RETRY_WAIT_SECONDS"); waitSeconds != "" {
+		fmt.Sscanf(waitSeconds, "%d", &config.Retry.WaitSeconds)
 	}
 
 	return config

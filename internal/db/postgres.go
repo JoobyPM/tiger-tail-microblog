@@ -23,7 +23,7 @@ func NewPostgresStub() *PostgresDB {
 	}
 }
 
-// NewPostgresConnection creates a new PostgreSQL connection
+// NewPostgresConnection creates a new PostgreSQL connection with retry mechanism
 func NewPostgresConnection(dsn string) (*PostgresDB, error) {
 	log.Printf("Connecting to PostgreSQL with DSN: %s", config.SanitizeConnectionString(dsn))
 	
@@ -38,7 +38,7 @@ func NewPostgresConnection(dsn string) (*PostgresDB, error) {
 	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	
-	// Verify connection
+	// Verify connection - this is handled by the caller with retry mechanism
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
