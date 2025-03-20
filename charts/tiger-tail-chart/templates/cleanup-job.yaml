@@ -1,0 +1,31 @@
+# This Job will run just before Helm deletes the release, removing any resources (PVC, Secret) that match our release labels.
+# This is useful for cleaning up resources after the release is deleted.
+{{- if .Values.cleanupOnUninstall }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tiger-tail-chart.fullname" . }}-cleanup
+  labels:
+    {{- include "tiger-tail-chart.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  ttlSecondsAfterFinished: 60  # Deletes the Job 60 seconds after completion
+  backoffLimit: 0             # No retries
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: cleanup
+        image: bitnami/kubectl:1.26.0
+        command: ["/bin/sh"]
+        # Feel free to adjust which resource types you want to remove:
+        args: 
+          - "-c"
+          - >
+            echo 'Cleaning up leftover resources...' &&
+            kubectl delete pvc,secret -n {{ .Release.Namespace }} 
+              -l app.kubernetes.io/instance={{ .Release.Name }} 
+              --ignore-not-found
+{{- end }}

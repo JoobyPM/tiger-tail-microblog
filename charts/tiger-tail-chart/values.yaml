@@ -16,16 +16,6 @@ serviceAccount:
   annotations: {}
 
 # -----------------------------------------------------------------------------
-# CREATE NAMESPACE
-# -----------------------------------------------------------------------------
-# NOTE: If `createNamespace` is true, the chart will try to create the namespace
-#       from `templates/namespace.yaml`. If that namespace already exists, 
-#       you'll get an error: "namespaces <xyz> already exists".
-#       Typically it's safer to set createNamespace: false (and let 
-#       `helm install your-release . -n existingNamespace --create-namespace`).
-createNamespace: false  # <-- CHANGED from true to false
-
-# -----------------------------------------------------------------------------
 # POD CONFIG & SECURITY
 # -----------------------------------------------------------------------------
 podAnnotations: {}
@@ -96,8 +86,9 @@ env:
   logLevel: "info"
 
 # -----------------------------------------------------------------------------
-# SECRETS
+# CREDENTIALS (SINGLE SOURCE OF TRUTH)
 # -----------------------------------------------------------------------------
+# These values are used for application secrets
 secrets:
   dbUser: "postgres"
   dbPassword: "postgres"
@@ -132,3 +123,10 @@ redis:
   master:
     service:
       port: 6379
+
+# -----------------------------------------------------------------------------
+# CLEANUP ON UNINSTALL
+# -----------------------------------------------------------------------------
+# Set this to true if you want a pre-delete hook job that forces deletion
+# of leftover PVCs and/or Secrets labeled with this chart's instance label.
+cleanupOnUninstall: false
